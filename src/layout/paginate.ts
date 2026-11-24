@@ -194,9 +194,10 @@ export function paginate(doc: DocumentModel, flowEl: HTMLElement, pageHeight: nu
 
   let breakAfterPrevious = false;
   for (const node of doc.elements) {
+    // Unknown types (e.g. a custom component still compiling) still take space.
     const def = getDefinition(node.type);
     const el = boxes.get(node.id);
-    if (!def || def.region || !el) continue;
+    if (def?.region || !el) continue;
 
     const rect = el.getBoundingClientRect();
     const top = rect.top - origin;
@@ -214,9 +215,9 @@ export function paginate(doc: DocumentModel, flowEl: HTMLElement, pageHeight: nu
         break;
       }
 
-      const canSplit = def.split && node.style["break-inside"] !== "avoid";
+      const canSplit = def?.split && node.style["break-inside"] !== "avoid";
       const split = canSplit
-        ? splitBlock(def.split!, el, node, from, start + pageHeight, origin, current.length === 0)
+        ? splitBlock(def!.split!, el, node, from, start + pageHeight, origin, current.length === 0)
         : null;
       if (split) {
         current.push({ nodeId: node.id, from, to: split.to, continued, continues: true });

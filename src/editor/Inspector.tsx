@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getDefinition } from "../elements/registry";
+import { getDefinition, useRegistryVersion } from "../elements/registry";
 import { useEditor, useSelectedNode } from "../model/store";
 import type { ElementNode, PageSettings } from "../model/types";
 import { FieldInput } from "./fields/FieldInput";
@@ -8,6 +8,7 @@ import { ColorInput, DraftTextarea, FONT_FAMILIES, Row, Segmented, Select, TextI
 
 /** Right sidebar: the selected element's parameters and styles, or page settings. */
 export function Inspector() {
+  useRegistryVersion();
   const node = useSelectedNode();
   return <aside className="panel inspector">{node ? <ElementPanel node={node} /> : <PagePanel />}</aside>;
 }

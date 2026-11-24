@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import documentCss from "../styles/document.css?raw";
+import { componentsCss } from "../elements/registry";
 import type { PageLayout } from "../layout/paginate";
 import { baseTypography, declarations, elementsCss, pageDimensions, scopedCustomCss } from "../model/css";
 import type { DocumentModel } from "../model/types";
@@ -50,6 +51,7 @@ export function printPages(doc: DocumentModel, layout: PageLayout[]) {
 <meta charset="utf-8">
 <title>${escapeHtml(doc.title)}</title>
 <style>${documentCss}</style>
+<style>${componentsCss()}</style>
 <style>${elementsCss(doc)}</style>
 <style>${scopedCustomCss(doc)}</style>
 <style>

@@ -1,37 +1,37 @@
 import { useRef } from "react";
 import { useEditor } from "../model/store";
+import { packDocument, readDocumentFile } from "../model/pdoc";
 import { sampleDocument } from "../model/sample";
-import type { DocumentModel } from "../model/types";
 
 export type ViewMode = "edit" | "preview";
 
-export function TopBar({ mode, setMode }: { mode: ViewMode; setMode: (m: ViewMode) => void }) {
+export function TopBar({ mode, setMode, inStudio }: { mode: ViewMode; setMode: (m: ViewMode) => void; inStudio?: boolean }) {
   const { state, dispatch } = useEditor();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const exportJson = () => {
-    const blob = new Blob([JSON.stringify(state.doc, null, 2)], { type: "application/json" });
+  /** Saves the document as a .pdoc: a zip with document.json, component sources and media. */
+  const save = () => {
+    const bytes = packDocument(state.doc);
+    const blob = new Blob([bytes as BlobPart], { type: "application/zip" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `${state.doc.title || "document"}.json`;
+    a.download = `${state.doc.title || "document"}.pdoc`;
     a.click();
-    URL.revokeObjectURL(a.href);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
 
-  const importJson = async (file: File | undefined) => {
+  const open = async (file: File | undefined) => {
     if (!file) return;
     try {
-      const doc = JSON.parse(await file.text()) as DocumentModel;
-      if (doc.version !== 1 || !Array.isArray(doc.elements)) throw new Error("Not a paged-editor document");
-      dispatch({ type: "load", doc });
+      dispatch({ type: "load", doc: await readDocumentFile(file) });
     } catch (err) {
-      alert(`Could not import: ${(err as Error).message}`);
+      alert(`Could not open: ${(err as Error).message}`);
     }
   };
 
   const newDocument = () => {
     const doc = sampleDocument();
-    dispatch({ type: "load", doc: { ...doc, title: "Untitled", elements: [] } });
+    dispatch({ type: "load", doc: { ...doc, title: "Untitled", elements: [], components: [] } });
   };
 
   return (
@@ -54,19 +54,23 @@ export function TopBar({ mode, setMode }: { mode: ViewMode; setMode: (m: ViewMod
         </button>
       </div>
 
-      <div className="mode-toggle" role="tablist">
-        <button role="tab" aria-selected={mode === "edit"} className={mode === "edit" ? "is-on" : ""} onClick={() => setMode("edit")}>
-          Edit
-        </button>
-        <button
-          role="tab"
-          aria-selected={mode === "preview"}
-          className={mode === "preview" ? "is-on" : ""}
-          onClick={() => setMode("preview")}
-        >
-          Preview
-        </button>
-      </div>
+      {inStudio ? (
+        <div className="topbar-title">Component studio</div>
+      ) : (
+        <div className="mode-toggle" role="tablist">
+          <button role="tab" aria-selected={mode === "edit"} className={mode === "edit" ? "is-on" : ""} onClick={() => setMode("edit")}>
+            Edit
+          </button>
+          <button
+            role="tab"
+            aria-selected={mode === "preview"}
+            className={mode === "preview" ? "is-on" : ""}
+            onClick={() => setMode("preview")}
+          >
+            Preview
+          </button>
+        </div>
+      )}
 
       <div className="topbar-group topbar-right">
         <button className="btn" onClick={newDocument}>
@@ -76,12 +80,21 @@ export function TopBar({ mode, setMode }: { mode: ViewMode; setMode: (m: ViewMod
           Sample
         </button>
         <button className="btn" onClick={() => fileRef.current?.click()}>
-          Import
+          Open…
         </button>
-        <button className="btn" onClick={exportJson}>
-          Export JSON
+        <button className="btn" onClick={save} title="Save as .pdoc: a zip with the document, its components and media">
+          Save .pdoc
         </button>
-        <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => importJson(e.target.files?.[0])} />
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".pdoc,.json,application/zip,application/json"
+          hidden
+          onChange={(e) => {
+            open(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
       </div>
     </header>
   );

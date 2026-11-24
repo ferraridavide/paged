@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useReducer, type Dispatch, type R
 import { getDefinition } from "../elements/registry";
 import { newId } from "./ids";
 import { sampleDocument } from "./sample";
-import type { DocumentModel, ElementNode, PageSettings, StyleMap } from "./types";
+import type { ComponentFile, ComponentSource, DocumentModel, ElementNode, PageSettings, StyleMap } from "./types";
 
 export type Action =
   | { type: "select"; id: string | null }
@@ -15,6 +15,12 @@ export type Action =
   | { type: "updatePage"; patch: Partial<PageSettings> }
   | { type: "updateDoc"; patch: Partial<Pick<DocumentModel, "title" | "customCss">> }
   | { type: "load"; doc: DocumentModel }
+  | { type: "addComponent"; component: ComponentSource }
+  | { type: "updateComponent"; id: string; patch: Partial<Pick<ComponentSource, "name" | "entry" | "dependencies">> }
+  | { type: "removeComponent"; id: string }
+  | { type: "writeFile"; id: string; path: string; file: ComponentFile }
+  | { type: "deleteFile"; id: string; path: string }
+  | { type: "renameFile"; id: string; from: string; to: string }
   | { type: "undo" }
   | { type: "redo" };
 
@@ -83,7 +89,37 @@ function applyToDoc(state: EditorState, action: Action): { doc: DocumentModel; s
     case "updateDoc":
       return { doc: { ...doc, ...action.patch } };
     case "load":
-      return { doc: action.doc, selectedId: null };
+      return { doc: normalizeDocument(action.doc), selectedId: null };
+    case "addComponent":
+      return { doc: { ...doc, components: [...doc.components, action.component] } };
+    case "updateComponent":
+      return {
+        doc: {
+          ...doc,
+          components: doc.components.map((c) => (c.id === action.id ? { ...c, ...action.patch } : c)),
+        },
+      };
+    case "removeComponent":
+      return { doc: { ...doc, components: doc.components.filter((c) => c.id !== action.id) } };
+    case "writeFile":
+      return updateComponentFiles(doc, action.id, (files) => ({ ...files, [action.path]: action.file }));
+    case "deleteFile":
+      // A path ending in "/" deletes a whole folder.
+      return updateComponentFiles(doc, action.id, (files) =>
+        Object.fromEntries(
+          Object.entries(files).filter(([p]) => (action.path.endsWith("/") ? !p.startsWith(action.path) : p !== action.path)),
+        ),
+      );
+    case "renameFile":
+      return updateComponentFiles(doc, action.id, (files) =>
+        Object.fromEntries(
+          Object.entries(files).map(([p, f]) => {
+            if (p === action.from) return [action.to, f];
+            if (action.from.endsWith("/") && p.startsWith(action.from)) return [action.to + p.slice(action.from.length), f];
+            return [p, f];
+          }),
+        ),
+      );
     default:
       return null;
   }
@@ -100,6 +136,10 @@ function coalesceKey(action: Action): string | null {
       return `page:${Object.keys(action.patch).join(",")}`;
     case "updateDoc":
       return `doc:${Object.keys(action.patch).join(",")}`;
+    case "updateComponent":
+      return `component:${action.id}:${Object.keys(action.patch).join(",")}`;
+    case "writeFile":
+      return `file:${action.id}:${action.path}`;
     default:
       return null;
   }
@@ -152,12 +192,42 @@ export function reducer(state: EditorState, action: Action): EditorState {
   };
 }
 
+function updateComponentFiles(
+  doc: DocumentModel,
+  id: string,
+  fn: (files: ComponentSource["files"]) => ComponentSource["files"],
+) {
+  return { doc: { ...doc, components: doc.components.map((c) => (c.id === id ? { ...c, files: fn(c.files) } : c)) } };
+}
+
+/** Earlier drafts: one `source` string per component, packages pinned per document. */
+type LegacyComponent = { id: string; name: string; source?: string } & Partial<ComponentSource>;
+type LegacyDocument = Omit<DocumentModel, "components"> & {
+  components?: LegacyComponent[];
+  dependencies?: Record<string, string>;
+};
+
+/** Fills in fields added after a document was saved, and upgrades older formats. */
+export function normalizeDocument(input: DocumentModel | LegacyDocument): DocumentModel {
+  const { dependencies: legacyDeps = {}, ...doc } = input as LegacyDocument;
+  const components = (doc.components ?? []).map((c): ComponentSource => {
+    if (c.files) return { id: c.id, name: c.name, entry: c.entry ?? "index.tsx", files: c.files, dependencies: c.dependencies ?? {} };
+    const source = c.source ?? "";
+    // Keep the document-wide pins this component actually imports.
+    const dependencies = Object.fromEntries(
+      Object.entries(legacyDeps).filter(([name]) => source.includes(`"${name}`) || source.includes(`'${name}`)),
+    );
+    return { id: c.id, name: c.name, entry: "index.tsx", files: { "index.tsx": { kind: "text", content: source } }, dependencies };
+  });
+  return { ...doc, customCss: doc.customCss ?? "", components };
+}
+
 function loadInitialDocument(): DocumentModel {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const doc = JSON.parse(raw) as DocumentModel;
-      if (doc?.version === 1 && Array.isArray(doc.elements)) return doc;
+      if (doc?.version === 1 && Array.isArray(doc.elements)) return normalizeDocument(doc);
     }
   } catch {
     // Ignore unreadable storage and fall back to the sample.

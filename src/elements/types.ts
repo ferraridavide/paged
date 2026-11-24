@@ -63,7 +63,7 @@ export type FieldDef<P> =
   | (FieldBase<P> & { kind: "select"; options: { value: string; label: string }[] })
   | (FieldBase<P> & { kind: "boolean" });
 
-export type ElementGroup = "Text" | "Data" | "Media" | "Layout" | "Page";
+export type ElementGroup = "Text" | "Data" | "Media" | "Layout" | "Page" | "Custom";
 
 /**
  * How the paginator may split an element across pages:
@@ -89,4 +89,6 @@ export interface ElementDefinition<P = any> {
   keepWithNext?: boolean;
   /** Not part of the flow: drawn in the page margins of every page. */
   region?: "header" | "footer";
+  /** CSS this element type needs (custom components declare their own). */
+  css?: string;
 }

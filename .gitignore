@@ -1,5 +1,5 @@
 node_modules
 dist
-public/vendor
+public/runtime
 .DS_Store
 *.local

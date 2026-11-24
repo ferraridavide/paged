@@ -1,6 +1,6 @@
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import documentCss from "../styles/document.css?raw";
-import { getDefinition } from "../elements/registry";
+import { componentsCss, getDefinition, useRegistryVersion } from "../elements/registry";
 import { BoxModelOverlay } from "../editor/BoxModelOverlay";
 import { restoreCaret, caretRecord } from "../layout/caret";
 import { paginate, reconcile, type PageLayout } from "../layout/paginate";
@@ -42,6 +42,9 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
 
   // ---- Layout ----
 
+  // Custom components compiling changes what (and how) elements render.
+  const registryVersion = useRegistryVersion();
+
   const lastFlowHeight = useRef(0);
   const relayout = useCallback(() => {
     const flow = flowRef.current;
@@ -53,7 +56,8 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
     lastFlowHeight.current = flow.getBoundingClientRect().height;
     setPages((prev) => reconcile(prev, next));
     onLayout?.({ layout: next, pages: next.length, ms });
-  }, [doc, onLayout]);
+    // registryVersion is listed on purpose: re-run the layout when components recompile.
+  }, [doc, onLayout, registryVersion]);
 
   useLayoutEffect(relayout, [relayout]);
 
@@ -207,6 +211,7 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
       style={{ ...toReactStyle(baseTypography(doc.page)), ["--pd-content-height" as string]: contentHeight }}
     >
       <style>{documentCss}</style>
+      <style>{componentsCss()}</style>
       <style>{elementsCss(doc)}</style>
       <style>{scopedCustomCss(doc)}</style>
       {mode === "print" && selectedId && (

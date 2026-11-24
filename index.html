@@ -4,6 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Paged Editor</title>
+    <!--
+      Custom components and CDN packages import these bare specifiers; they
+      resolve to the editor's own instances (see scripts/gen-runtime.mjs).
+    -->
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "/runtime/react.js",
+          "react/jsx-runtime": "/runtime/react-jsx-runtime.js",
+          "react-dom": "/runtime/react-dom.js",
+          "@paged/sdk": "/runtime/sdk.js"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
