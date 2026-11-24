@@ -1,0 +1,142 @@
+/*
+ * Base styles for pages and document elements. Shared by the editor, the
+ * hidden measure flow and the print output, so all three lay out the same.
+ * Per-element styles from the sidebar are emitted after this file as
+ * [data-node-id="…"] rules and win.
+ */
+
+/* ---------- Pages ---------- */
+
+.pd-doc { position: relative; }
+.pd-page {
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: white;
+}
+.pd-content { position: absolute; display: flow-root; }
+.pd-margin {
+  position: absolute;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.pd-margin-top { top: 0; }
+.pd-margin-bottom { bottom: 0; }
+
+/* The hidden, unpaginated copy the paginator measures. */
+.pd-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+  contain: layout style;
+}
+.pd-probe { position: absolute; width: 0; }
+.pd-flow { display: flow-root; }
+
+/* A block starting a page loses its top margin (as in CSS paged media). */
+.pd-content > :first-child,
+.pd-content > .ed-block:first-child > [data-node-id] { margin-top: 0 !important; }
+
+/* Split elements are sliced: no inner edge where the cut happens. */
+.hd-frag-continues { margin-bottom: 0 !important; padding-bottom: 0 !important; border-bottom-width: 0 !important; }
+.hd-frag-continued { margin-top: 0 !important; padding-top: 0 !important; border-top-width: 0 !important; }
+
+/* Empty text keeps one line, in every mode, so edit and print measure the same. */
+.hd-text:empty::before,
+.hd-heading:empty::before,
+.hd-list li:empty::before,
+.hd-table th:empty::before,
+.hd-table td:empty::before { content: "\200b"; }
+
+/* ---------- Elements ---------- */
+
+.hd-heading {
+  margin: 0 0 0.5em;
+  line-height: 1.2;
+  font-weight: 700;
+}
+.hd-h1 { font-size: 2em; margin-bottom: 0.6em; }
+.hd-h2 { font-size: 1.5em; margin-top: 1.2em; }
+.hd-h3 { font-size: 1.25em; margin-top: 1em; }
+.hd-h4 { font-size: 1.1em; margin-top: 1em; }
+.hd-h5 { font-size: 1em; margin-top: 1em; }
+.hd-h6 { font-size: 0.9em; margin-top: 1em; text-transform: uppercase; letter-spacing: 0.04em; }
+
+.hd-text {
+  margin: 0 0 0.8em;
+  white-space: pre-wrap;
+}
+
+.hd-list {
+  margin: 0 0 0.8em;
+  padding-left: 1.4em;
+}
+.hd-list li { margin: 0.2em 0; }
+
+.hd-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1em;
+  font-size: 0.95em;
+}
+.hd-table th,
+.hd-table td {
+  border: 1px solid var(--hd-table-border, #d6d3d1);
+  padding: var(--hd-cell-padding, 6px 8px);
+  text-align: left;
+  vertical-align: top;
+  white-space: pre-wrap;
+}
+.hd-table th {
+  background: var(--hd-table-head-bg, #f5f5f4);
+  font-weight: 600;
+}
+.hd-table--striped tbody tr.is-even td { background: #fafaf9; }
+
+.hd-image { margin: 0 0 1em; }
+.hd-image img {
+  display: block;
+  max-width: 100%;
+  max-height: var(--pd-content-height);
+  object-fit: contain;
+}
+.hd-image-empty {
+  height: 30mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hd-image figcaption {
+  margin-top: 0.4em;
+  font-size: 0.85em;
+  color: #78716c;
+}
+
+.hd-divider {
+  border: 0;
+  margin: 1em 0;
+}
+
+.hd-page-break { height: 0; position: relative; }
+
+/* Header / footer, drawn in the page margins. */
+.hd-region {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  align-items: center;
+}
+.hd-run {
+  font-size: 9pt;
+  color: #78716c;
+  white-space: pre-wrap;
+}
+.hd-run-left { text-align: left; }
+.hd-run-center { text-align: center; }
+.hd-run-right { text-align: right; }
