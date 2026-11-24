@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cdnUrl, isCodeFile } from "../custom/compile";
 import { getCompileStatus, useRegistryVersion } from "../elements/registry";
@@ -150,8 +151,8 @@ function PackageRow({
         <a href={cdnUrl(name, version)} target="_blank" rel="noreferrer" title="Open on esm.sh">
           esm.sh ↗
         </a>
-        <button className="btn btn-ghost" title={`Remove ${name}`} onClick={onRemove}>
-          ✕
+        <button className="icon-button" title={`Remove ${name}`} onClick={onRemove}>
+          <X size={14} />
         </button>
       </td>
     </tr>

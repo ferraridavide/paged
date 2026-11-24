@@ -16,6 +16,11 @@ export interface ElementNode<P = Record<string, unknown>> {
   type: string;
   props: P;
   style: StyleMap;
+  /**
+   * State a component manages itself (e.g. a 3D camera), persisted with the
+   * document but not shown in the sidebar. Written via useElementState().
+   */
+  state?: Record<string, unknown>;
 }
 
 export type PageSize = "A4" | "A5" | "Letter" | "Legal";

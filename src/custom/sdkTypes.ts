@@ -54,6 +54,12 @@ declare module "@paged/sdk" {
     style?: Record<string, string | number>;
   }): any;
 
+  /**
+   * State the component manages itself, saved with the element in the document
+   * (not shown in the sidebar). Setting it is undoable. Read-only in print.
+   */
+  export function useElementState<T>(key: string, initial: T): [T, (value: T) => void];
+
   /** The element being rendered, and update(patch) to change its props. */
   export function useElement(): {
     node: { id: string; type: string; props: Record<string, any> };

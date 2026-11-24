@@ -7,6 +7,16 @@
 
 /* ---------- Pages ---------- */
 
+/*
+ * Browsers drop background colours and images when printing unless the user
+ * ticks "Background graphics". Document colours are deliberate (table
+ * headers, callouts, component CSS), so print exactly what's on screen.
+ */
+.pd-doc, .pd-doc * {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
 .pd-doc { position: relative; }
 .pd-page {
   position: relative;
@@ -52,7 +62,8 @@
 .hd-heading:empty::before,
 .hd-list li:empty::before,
 .hd-table th:empty::before,
-.hd-table td:empty::before { content: "\200b"; }
+.hd-table td:empty::before,
+.hd-table [data-editable]:empty::before { content: "\200b"; }
 
 /* ---------- Elements ---------- */
 
@@ -98,6 +109,9 @@
   font-weight: 600;
 }
 .hd-table--striped tbody tr.is-even td { background: #fafaf9; }
+/* Saved column widths (element state) apply in every mode. */
+.hd-table.has-widths { table-layout: fixed; }
+.hd-table th, .hd-table td { position: relative; overflow-wrap: anywhere; }
 
 .hd-image { margin: 0 0 1em; }
 .hd-image img {

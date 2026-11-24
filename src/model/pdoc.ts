@@ -82,20 +82,26 @@ export function packDocument(doc: DocumentModel): Uint8Array {
     return { id: c.id, dir };
   });
 
-  // Move embedded images (data: URLs in element props) into media/.
-  const elements = doc.elements.map((node) => {
-    const props: Record<string, unknown> = { ...node.props };
-    for (const [key, value] of Object.entries(props)) {
+  // Move embedded images (data: URLs in element props and state) into media/.
+  const extract = (nodeId: string, values: Record<string, unknown> | undefined, prefix: string) => {
+    if (!values) return values;
+    const out: Record<string, unknown> = { ...values };
+    for (const [key, value] of Object.entries(out)) {
       if (typeof value !== "string" || !value.startsWith("data:")) continue;
       const decoded = dataUrlToBytes(value);
       if (!decoded) continue;
-      const path = `media/${node.id}-${slug(key)}.${EXT[decoded.mime] ?? "bin"}`;
+      const path = `media/${nodeId}-${prefix}${slug(key)}.${EXT[decoded.mime] ?? "bin"}`;
       files[path] = [decoded.bytes, { level: decoded.mime === "image/svg+xml" ? 6 : 0 }];
       media[path] = decoded.mime;
-      props[key] = MEDIA_REF + path;
+      out[key] = MEDIA_REF + path;
     }
-    return { ...node, props };
-  });
+    return out;
+  };
+  const elements = doc.elements.map((node) => ({
+    ...node,
+    props: extract(node.id, node.props, ""),
+    ...(node.state ? { state: extract(node.id, node.state, "state-") } : {}),
+  }));
 
   const json = { ...doc, elements, components, media };
   files["document.json"] = strToU8(JSON.stringify(json, null, 2));
@@ -134,16 +140,22 @@ export function unpackDocument(bytes: Uint8Array): DocumentModel {
     return { ...info, id: c.id, files: own };
   });
 
-  const elements = raw.elements.map((node) => {
-    const props: Record<string, unknown> = { ...node.props };
-    for (const [key, value] of Object.entries(props)) {
+  const restore = (values: Record<string, unknown> | undefined) => {
+    if (!values) return values;
+    const out: Record<string, unknown> = { ...values };
+    for (const [key, value] of Object.entries(out)) {
       if (typeof value !== "string" || !value.startsWith(MEDIA_REF)) continue;
       const path = value.slice(MEDIA_REF.length);
       const file = files[path];
-      props[key] = file ? bytesToDataUrl(file, raw.media?.[path] ?? "application/octet-stream") : "";
+      out[key] = file ? bytesToDataUrl(file, raw.media?.[path] ?? "application/octet-stream") : "";
     }
-    return { ...node, props };
-  });
+    return out;
+  };
+  const elements = raw.elements.map((node) => ({
+    ...node,
+    props: restore(node.props)!,
+    ...(node.state ? { state: restore(node.state) } : {}),
+  }));
 
   const { media: _media, ...rest } = raw;
   return normalizeDocument({ ...rest, elements, components } as unknown as DocumentModel);

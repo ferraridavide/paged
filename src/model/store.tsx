@@ -7,6 +7,7 @@ import type { ComponentFile, ComponentSource, DocumentModel, ElementNode, PageSe
 export type Action =
   | { type: "select"; id: string | null }
   | { type: "insert"; elementType: string; index?: number }
+  | { type: "insertNode"; node: ElementNode; index?: number }
   | { type: "updateProps"; id: string; patch: Record<string, unknown> }
   | { type: "updateStyle"; id: string; style: StyleMap }
   | { type: "remove"; id: string }
@@ -56,8 +57,22 @@ function applyToDoc(state: EditorState, action: Action): { doc: DocumentModel; s
       const elements = [...doc.elements.slice(0, index), node, ...doc.elements.slice(index)];
       return { doc: { ...doc, elements }, selectedId: node.id };
     }
-    case "updateProps":
-      return { doc: updateElement(doc, action.id, (n) => ({ ...n, props: { ...n.props, ...action.patch } })) };
+    case "insertNode": {
+      const index = action.index ?? doc.elements.length;
+      const elements = [...doc.elements.slice(0, index), action.node, ...doc.elements.slice(index)];
+      return { doc: { ...doc, elements }, selectedId: action.node.id };
+    }
+    case "updateProps": {
+      // "$state" in a patch targets the element's own state, not its props.
+      const { $state, ...props } = action.patch as { $state?: Record<string, unknown> };
+      return {
+        doc: updateElement(doc, action.id, (n) => ({
+          ...n,
+          props: { ...n.props, ...props },
+          ...($state ? { state: { ...n.state, ...$state } } : {}),
+        })),
+      };
+    }
     case "updateStyle":
       return { doc: updateElement(doc, action.id, (n) => ({ ...n, style: action.style })) };
     case "remove": {
@@ -185,7 +200,10 @@ export function reducer(state: EditorState, action: Action): EditorState {
   return {
     doc: result.doc,
     selectedId: result.selectedId !== undefined ? result.selectedId : state.selectedId,
-    lastInserted: action.type === "insert" || action.type === "duplicate" ? (result.selectedId ?? null) : state.lastInserted,
+    lastInserted:
+      action.type === "insert" || action.type === "insertNode" || action.type === "duplicate"
+        ? (result.selectedId ?? null)
+        : state.lastInserted,
     past: merge ? state.past : [...state.past, state.doc].slice(-HISTORY_LIMIT),
     future: [],
     lastEdit: key ? { key, at: now } : null,

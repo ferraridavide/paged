@@ -26,14 +26,14 @@ function edges(cs: CSSStyleDeclaration, prop: "margin" | "padding" | "border", s
 function measure(container: HTMLElement): BoxModel | null {
   const el = container.querySelector<HTMLElement>(":scope > [data-node-id]");
   if (!el) return null;
-  const c = container.getBoundingClientRect();
-  const r = el.getBoundingClientRect();
   const cs = getComputedStyle(el);
+  // Offsets (not client rects) are in the container's own CSS pixels, so the
+  // overlay stays aligned when the pages are zoomed.
   return {
-    x: r.left - c.left,
-    y: r.top - c.top,
-    width: r.width,
-    height: r.height,
+    x: el.offsetLeft,
+    y: el.offsetTop,
+    width: el.offsetWidth,
+    height: el.offsetHeight,
     margin: edges(cs, "margin"),
     border: edges(cs, "border", "-width"),
     padding: edges(cs, "padding"),

@@ -1,3 +1,4 @@
+import { RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import documentCss from "../styles/document.css?raw";
 import { componentsCss, getCompileStatus, getDefinition, useRegistryVersion } from "../elements/registry";
@@ -18,7 +19,17 @@ export function usePreviewProps(comp: ComponentSource) {
   const defaults = def?.create().props ?? {};
   const props = { ...defaults, ...overrides } as Record<string, unknown>;
   // Stable callbacks keep the memoised preview element from re-rendering needlessly.
-  const setProp = useCallback((patch: Record<string, unknown>) => setOverrides((o) => ({ ...o, ...patch })), []);
+  const setProp = useCallback(
+    (patch: Record<string, unknown>) =>
+      setOverrides((o) => {
+        // Component state ("$state") merges key by key, like in the document.
+        const { $state, ...rest } = patch as { $state?: Record<string, unknown> };
+        const next: Record<string, unknown> = { ...o, ...rest };
+        if ($state) next.$state = { ...(o.$state as Record<string, unknown> | undefined), ...$state };
+        return next;
+      }),
+    [],
+  );
   const reset = useCallback(() => setOverrides({}), []);
   return { def, props, setProp, reset };
 }
@@ -39,7 +50,10 @@ export function PreviewPane({ comp, doc, preview }: { comp: ComponentSource; doc
 
   const propsKey = JSON.stringify(preview.props);
   const node: ElementNode = useMemo(
-    () => ({ id: `preview-${comp.id}`, type, props: preview.props, style: {} }),
+    () => {
+      const { $state, ...props } = preview.props as Record<string, unknown> & { $state?: Record<string, unknown> };
+      return { id: `preview-${comp.id}`, type, props, state: $state, style: {} };
+    },
     [comp.id, type, propsKey], // props compared by value
   );
 
@@ -129,7 +143,7 @@ export function ControlsPane({ preview }: { preview: PreviewProps }) {
         <span>Controls</span>
         <span className="studio-pane-actions">
           <button title="Reset to defaults" onClick={preview.reset}>
-            ↺
+            <RotateCcw size={14} />
           </button>
         </span>
       </div>

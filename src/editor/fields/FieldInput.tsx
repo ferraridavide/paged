@@ -94,7 +94,7 @@ function ImageField({ label, value, onChange }: { label: string; value: string; 
   };
 
   return (
-    <div className="row">
+    <div className="row row-stack">
       <span className="row-label">{label}</span>
       {value && <img className="image-thumb" src={value} alt="" />}
       <input
@@ -127,7 +127,7 @@ function TableSizeField({ label, rows, onChange }: { label: string; rows: string
   const removeCol = () => cols > 1 && onChange(rows.map((r) => r.slice(0, -1)));
 
   return (
-    <div className="row">
+    <div className="row row-stack">
       <span className="row-label">{label}</span>
       <div className="table-size">
         <span>Rows</span>

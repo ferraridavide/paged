@@ -5,6 +5,12 @@ element components (heading, text, list, table, image, …) that you edit
 directly on real pages. Edit, Preview and print share one page layout,
 computed by a small custom paginator (no Paged.js).
 
+The interface is a standard desktop-style editor: a menu bar (File, Edit,
+Insert, View, Components, Help), right-click menus on elements, pages and
+studio files, an inspector on the right, a status bar with zoom, and keyboard
+shortcuts (Help → Keyboard shortcuts, ⌘/). Every action is defined once in
+`src/editor/commands.tsx`, so menus, context menus and shortcuts agree.
+
 ```bash
 pnpm install
 pnpm dev
@@ -49,9 +55,10 @@ DocumentModel (JSON, in memory + localStorage)
 ## Custom components
 
 Documents carry their own React components. **Using** a component happens in
-the document (Custom group in the left panel: click or drag to insert, edit
-its props in the sidebar). **Building** one happens in the **component
-studio**, a separate full view opened with `</>` or "+ New component":
+the document (Insert menu or right-click → Insert above/below, then edit its
+props in the inspector). **Building** one happens in the **component studio**,
+a separate full view opened from the Components menu, right-click → Edit
+component…, or the components pill in the status bar:
 
 | Area | What it does |
 |---|---|
@@ -97,6 +104,26 @@ export default defineElement({
 - **Trust**: components run in the editor's page with full access. That's
   fine for code you or your team write; documents from untrusted sources need
   a sandbox first.
+
+### Component state
+
+Props are what the user sets in the sidebar. **State** is what a component
+manages itself and must persist, like a 3D camera. It lives on the element
+(`node.state`), is saved in the document (data URLs go to `media/` in a
+.pdoc), and every change is an undoable edit:
+
+```tsx
+const [camera, setCamera] = useElementState("camera", DEFAULT_CAMERA);
+```
+
+Built-in elements use the same mechanism: dragging a table's column borders
+stores `columnWidths` in the table's state (double-click a border to reset).
+
+Print rendering is static HTML, so anything drawn at runtime (canvas, WebGL)
+should save a still in state and render that in print mode. The sample
+**3D scene** component (three.js) does exactly this: orbit/pan/zoom in Edit
+mode, camera and a JPEG still saved on release, the still shown in Preview
+and print.
 
 ## The .pdoc format
 

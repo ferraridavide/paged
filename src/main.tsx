@@ -6,7 +6,9 @@ import * as JsxRuntime from "react/jsx-runtime";
 import * as sdk from "./custom/sdk";
 import App from "./App";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { UiProvider } from "./editor/ui";
 import { EditorProvider } from "./model/store";
+import { MenuProvider } from "./ui/Menu";
 import "./styles/app.css";
 
 // The modules behind index.html's import map (public/runtime/*.js) read these,
@@ -22,7 +24,11 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
       <EditorProvider>
-        <App />
+        <UiProvider>
+          <MenuProvider>
+            <App />
+          </MenuProvider>
+        </UiProvider>
       </EditorProvider>
     </ErrorBoundary>
   </StrictMode>,

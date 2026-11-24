@@ -1,7 +1,12 @@
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import documentCss from "../styles/document.css?raw";
 import { componentsCss, getDefinition, useRegistryVersion } from "../elements/registry";
+import { Ellipsis, GripVertical, Plus } from "lucide-react";
 import { BoxModelOverlay } from "../editor/BoxModelOverlay";
+import { useInsertItems } from "../editor/commands";
+import { useElementMenu, usePageMenu } from "../editor/contextMenus";
+import { useUi } from "../editor/ui";
+import { useContextMenu, useMenu } from "../ui/Menu";
 import { restoreCaret, caretRecord } from "../layout/caret";
 import { paginate, reconcile, type PageLayout } from "../layout/paginate";
 import { baseTypography, elementsCss, pageDimensions, scopedCustomCss, toReactStyle } from "../model/css";
@@ -192,6 +197,21 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
         }
       : {};
 
+  // Right-click: an element's menu (preview, or regions/blocks not handled below), else the page menu.
+  const contextMenu = useContextMenu();
+  const elementMenu = useElementMenu();
+  const pageMenu = usePageMenu();
+  const onContextMenu = (e: React.MouseEvent) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>("[data-node-id]");
+    const node = el ? byId.get(el.dataset.nodeId!) : undefined;
+    if (node) {
+      dispatch({ type: "select", id: node.id });
+      contextMenu(e, elementMenu(node));
+    } else {
+      contextMenu(e, pageMenu());
+    }
+  };
+
   // In preview, clicking an element selects it.
   const onPreviewClick = (e: React.MouseEvent) => {
     if (mode !== "print") return;
@@ -204,10 +224,14 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
   const { width, height } = pageDimensions(doc.page);
   const m = doc.page.margin;
   const contentHeight = `calc(${height}mm - ${m.top} - ${m.bottom})`;
+  const { settings } = useUi();
+  let docClass = `pd-doc pd-${mode}`;
+  if (!settings.hoverOutlines) docClass += " no-hover-outlines";
+  if (!settings.boxModel) docClass += " no-box-model";
 
   return (
     <div
-      className={`pd-doc pd-${mode}`}
+      className={docClass}
       style={{ ...toReactStyle(baseTypography(doc.page)), ["--pd-content-height" as string]: contentHeight }}
     >
       <style>{documentCss}</style>
@@ -225,7 +249,14 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
           </div>
         </div>
 
-        <div ref={pagesRef} className="pd-pages" onClick={onPreviewClick} {...dndHandlers}>
+        <div
+          ref={pagesRef}
+          className="pd-pages"
+          style={{ zoom: settings.zoom }}
+          onClick={onPreviewClick}
+          onContextMenu={onContextMenu}
+          {...dndHandlers}
+        >
           {pages.map((page, i) => (
             <Page
               key={i}
@@ -240,6 +271,7 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
               selectedId={selectedId}
               dropIndex={dropIndex}
               onUpdate={onUpdate}
+              empty={i === 0 && mode === "edit" && flowNodes.length === 0}
             />
           ))}
         </div>
@@ -271,9 +303,11 @@ export interface PageProps {
   selectedId: string | null;
   dropIndex: number | null;
   onUpdate?: (id: string, patch: Record<string, unknown>) => void;
+  /** Show the "empty document" hint on this page. */
+  empty?: boolean;
 }
 
-export function Page({ page, visible, number, total, doc, byId, indexOf, mode, selectedId, dropIndex, onUpdate }: PageProps) {
+export function Page({ page, visible, number, total, doc, byId, indexOf, mode, selectedId, dropIndex, onUpdate, empty }: PageProps) {
   const { width, height } = pageDimensions(doc.page);
   const m = doc.page.margin;
   const info = useMemo(() => ({ number, total }), [number, total]);
@@ -303,6 +337,7 @@ export function Page({ page, visible, number, total, doc, byId, indexOf, mode, s
     <section className="pd-page" style={style} data-page={number}>
       {region(header, "top")}
       <div className="pd-content" style={{ top: m.top, left: m.left, right: m.right, bottom: m.bottom }}>
+        {empty && <EmptyHint />}
         {page.fragments.map((f) => {
           const node = byId.get(f.nodeId);
           if (!node) return null;
@@ -343,8 +378,12 @@ interface EditBlockProps {
 /** Editor chrome around one fragment: selection outline and a toolbar in the page margin. */
 const focusedInserts = new Set<string>();
 
-function EditBlock({ node, index, count, selected, region, dropBefore, dropAfter, children }: EditBlockProps) {
+function EditBlock({ node, index, selected, region, dropBefore, dropAfter, children }: EditBlockProps) {
   const { state, dispatch } = useEditor();
+  const { settings } = useUi();
+  const menu = useMenu();
+  const contextMenu = useContextMenu();
+  const elementMenu = useElementMenu();
   const justInserted = state.lastInserted === node.id;
   const def = getDefinition(node.type);
   const ref = useRef<HTMLDivElement>(null);
@@ -356,7 +395,8 @@ function EditBlock({ node, index, count, selected, region, dropBefore, dropAfter
     focusedInserts.add(node.id);
     const editable = ref.current?.querySelector<HTMLElement>("[data-editable]");
     ref.current?.scrollIntoView({ block: "nearest" });
-    if (!editable || document.activeElement?.closest("[data-editable]")) return;
+    // Inserting is deliberate, so the new element takes focus even from other text.
+    if (!editable) return;
     editable.focus();
     const range = document.createRange();
     range.selectNodeContents(editable);
@@ -376,8 +416,12 @@ function EditBlock({ node, index, count, selected, region, dropBefore, dropAfter
       ref={ref}
       className={className}
       data-index={region ? undefined : index}
-      onMouseDown={() => {
-        if (!selected) dispatch({ type: "select", id: node.id });
+      onMouseDown={(e) => {
+        if (e.button === 0 && !selected) dispatch({ type: "select", id: node.id });
+      }}
+      onContextMenu={(e) => {
+        dispatch({ type: "select", id: node.id });
+        contextMenu(e, elementMenu(node));
       }}
     >
       {!region && (
@@ -392,32 +436,43 @@ function EditBlock({ node, index, count, selected, region, dropBefore, dropAfter
             onClick={() => dispatch({ type: "select", id: node.id })}
             title={`${def?.label ?? node.type}: drag to move`}
           >
-            ⋮⋮
+            <GripVertical size={14} />
           </span>
-          {selected && (
-            <>
-              <button title="Move up" disabled={index === 0} onClick={() => dispatch({ type: "move", id: node.id, to: index - 1 })}>
-                ↑
-              </button>
-              <button
-                title="Move down"
-                disabled={index === count - 1}
-                onClick={() => dispatch({ type: "move", id: node.id, to: index + 2 })}
-              >
-                ↓
-              </button>
-              <button title="Duplicate" onClick={() => dispatch({ type: "duplicate", id: node.id })}>
-                ⧉
-              </button>
-              <button title="Delete" onClick={() => dispatch({ type: "remove", id: node.id })}>
-                ✕
-              </button>
-            </>
-          )}
+          <button
+            title="More actions"
+            onClick={(e) => {
+              dispatch({ type: "select", id: node.id });
+              const r = e.currentTarget.getBoundingClientRect();
+              menu.open({ items: elementMenu(node), x: r.left, y: r.bottom + 4 });
+            }}
+          >
+            <Ellipsis size={14} />
+          </button>
         </div>
       )}
       {children}
-      {selected && <BoxModelOverlay containerRef={ref} />}
+      {selected && settings.boxModel && <BoxModelOverlay containerRef={ref} />}
+    </div>
+  );
+}
+
+/** Shown on the first page of an empty document. */
+function EmptyHint() {
+  const menu = useMenu();
+  const insertItems = useInsertItems();
+  return (
+    <div className="ed-empty">
+      <p>This document is empty.</p>
+      <button
+        className="btn btn-primary"
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          menu.open({ items: insertItems(undefined), x: r.left, y: r.bottom + 4 });
+        }}
+      >
+        <Plus size={14} /> Insert element
+      </button>
+      <p className="muted">or right-click the page, or use the Insert menu.</p>
     </div>
   );
 }

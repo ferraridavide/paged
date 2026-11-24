@@ -1,4 +1,6 @@
+import { ClipboardCopy, Eraser } from "lucide-react";
 import { useState } from "react";
+import { useContextMenu, type MenuItem } from "../ui/Menu";
 import { getCompileStatus, useRegistryVersion, type Problem } from "../elements/registry";
 import { clearLogs, useLogs } from "../custom/logs";
 import { customType, type ComponentSource } from "../model/types";
@@ -9,6 +11,14 @@ export function OutputPane({ comp, onOpenProblem }: { comp: ComponentSource; onO
   const [tab, setTab] = useState<"problems" | "console">("problems");
   const status = getCompileStatus(customType(comp.id));
   const logs = useLogs(comp.id);
+  const contextMenu = useContextMenu();
+  const copy = (text: string) => navigator.clipboard?.writeText(text);
+  const rowMenu = (text: string): MenuItem[] => [
+    { label: "Copy", icon: ClipboardCopy, onSelect: () => copy(text) },
+    { label: "Copy all", icon: ClipboardCopy, onSelect: () => copy((tab === "console" ? logs.map((l) => l.message) : problems.map((p) => p.message)).join("\n")) },
+    { type: "separator" },
+    { label: "Clear console", icon: Eraser, disabled: logs.length === 0, onSelect: () => clearLogs(comp.id) },
+  ];
 
   const compileProblems = status?.problems ?? [];
   // Render errors only matter while the current build is the one that threw.
@@ -35,7 +45,7 @@ export function OutputPane({ comp, onOpenProblem }: { comp: ComponentSource; onO
         {tab === "console" && (
           <span className="studio-pane-actions">
             <button title="Clear console" onClick={() => clearLogs(comp.id)}>
-              ⌫
+              <Eraser size={14} />
             </button>
           </span>
         )}
@@ -47,7 +57,7 @@ export function OutputPane({ comp, onOpenProblem }: { comp: ComponentSource; onO
           ) : (
             <ul className="problem-list">
               {problems.map((p, i) => (
-                <li key={i}>
+                <li key={i} onContextMenu={(e) => contextMenu(e, rowMenu(p.message))}>
                   <button disabled={!p.file} onClick={() => onOpenProblem(p)}>
                     <span className="problem-icon">✕</span>
                     <span className="problem-message">{p.message}</span>
@@ -70,7 +80,7 @@ export function OutputPane({ comp, onOpenProblem }: { comp: ComponentSource; onO
         ) : (
           <ul className="console-list">
             {logs.map((l) => (
-              <li key={l.id} className={`is-${l.level}`}>
+              <li key={l.id} className={`is-${l.level}`} onContextMenu={(e) => contextMenu(e, rowMenu(l.message))}>
                 <span className="console-time">{new Date(l.time).toLocaleTimeString()}</span>
                 {l.count > 1 && <span className="console-count">{l.count}</span>}
                 <span className="console-message">{l.message}</span>

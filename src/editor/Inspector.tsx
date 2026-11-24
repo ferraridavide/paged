@@ -1,4 +1,7 @@
+import { FileText, X } from "lucide-react";
 import { useState } from "react";
+import { elementIcon } from "./icons";
+import { INSPECTOR_WIDTH, useUi } from "./ui";
 import { getDefinition, useRegistryVersion } from "../elements/registry";
 import { useEditor, useSelectedNode } from "../model/store";
 import type { ElementNode, PageSettings } from "../model/types";
@@ -10,7 +13,67 @@ import { ColorInput, DraftTextarea, FONT_FAMILIES, Row, Segmented, Select, TextI
 export function Inspector() {
   useRegistryVersion();
   const node = useSelectedNode();
-  return <aside className="panel inspector">{node ? <ElementPanel node={node} /> : <PagePanel />}</aside>;
+  return (
+    <aside className="panel inspector">
+      <PanelResizer />
+      {node ? <ElementPanel node={node} /> : <PagePanel />}
+    </aside>
+  );
+}
+
+/**
+ * The inspector's left edge: drag to resize, double-click to restore the
+ * default width, or focus it and use the arrow keys.
+ */
+function PanelResizer() {
+  const ui = useUi();
+  const width = ui.settings.inspectorWidth;
+  const clamp = (w: number) =>
+    Math.round(Math.min(INSPECTOR_WIDTH.max, window.innerWidth - 360, Math.max(INSPECTOR_WIDTH.min, w)));
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const handle = e.currentTarget;
+    const startX = e.clientX;
+    const startWidth = width;
+    handle.setPointerCapture(e.pointerId);
+    document.body.classList.add("is-resizing");
+    const onMove = (ev: PointerEvent) => ui.set({ inspectorWidth: clamp(startWidth + (startX - ev.clientX)) });
+    const onUp = () => {
+      document.body.classList.remove("is-resizing");
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onUp);
+    };
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onUp);
+  };
+
+  return (
+    <div
+      className="panel-resizer"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize inspector"
+      aria-valuenow={width}
+      aria-valuemin={INSPECTOR_WIDTH.min}
+      aria-valuemax={INSPECTOR_WIDTH.max}
+      tabIndex={0}
+      title="Drag to resize · double-click to reset"
+      onPointerDown={onPointerDown}
+      onDoubleClick={() => ui.set({ inspectorWidth: INSPECTOR_WIDTH.default })}
+      onKeyDown={(e) => {
+        const step = e.shiftKey ? 48 : 16;
+        if (e.key === "ArrowLeft") ui.set({ inspectorWidth: clamp(width + step) });
+        else if (e.key === "ArrowRight") ui.set({ inspectorWidth: clamp(width - step) });
+        else if (e.key === "Enter") ui.set({ inspectorWidth: INSPECTOR_WIDTH.default });
+        else return;
+        e.preventDefault();
+      }}
+    />
+  );
 }
 
 function ElementPanel({ node }: { node: ElementNode }) {
@@ -18,17 +81,20 @@ function ElementPanel({ node }: { node: ElementNode }) {
   const [tab, setTab] = useState<"content" | "style">("content");
   const def = getDefinition(node.type);
   const styleCount = Object.keys(node.style).length;
+  const Icon = elementIcon(node.type);
 
   return (
     <>
       <header className="panel-header">
-        <span className="panel-icon">{def?.icon}</span>
+        <span className="panel-icon">
+          <Icon size={15} />
+        </span>
         <div className="panel-title">
           <strong>{def?.label ?? node.type}</strong>
           <code>{node.id}</code>
         </div>
-        <button className="btn btn-ghost" title="Back to page settings" onClick={() => dispatch({ type: "select", id: null })}>
-          ✕
+        <button className="icon-button" title="Deselect (Esc)" onClick={() => dispatch({ type: "select", id: null })}>
+          <X size={15} />
         </button>
       </header>
       <nav className="tabs">
@@ -82,7 +148,9 @@ function PagePanel() {
   return (
     <>
       <header className="panel-header">
-        <span className="panel-icon">▤</span>
+        <span className="panel-icon">
+          <FileText size={15} />
+        </span>
         <div className="panel-title">
           <strong>Document</strong>
           <span className="muted">Select an element to edit it</span>

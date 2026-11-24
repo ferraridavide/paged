@@ -1,4 +1,23 @@
+import {
+  ChevronDown,
+  ChevronRight,
+  FileBraces,
+  FileCode,
+  FileImage,
+  FilePlus,
+  FileText,
+  FileType,
+  FolderPlus,
+  Pencil,
+  Settings,
+  Star,
+  Trash,
+  Upload,
+  type LucideIcon,
+} from "lucide-react";
 import { useRef, useState } from "react";
+import { tidy, useContextMenu, type MenuItem } from "../ui/Menu";
+import { isCodeFile } from "../custom/compile";
 import { getCompileStatus, useRegistryVersion } from "../elements/registry";
 import { extOf, TEXT_EXTENSIONS } from "../model/pdoc";
 import { useEditor } from "../model/store";
@@ -11,19 +30,21 @@ interface Props {
   onSelect: (path: string) => void;
 }
 
-const ICONS: Record<string, string> = {
-  tsx: "⚛",
-  jsx: "⚛",
-  ts: "TS",
-  js: "JS",
-  css: "#",
-  json: "{}",
-  md: "M",
+const ICONS: Record<string, LucideIcon> = {
+  tsx: FileCode,
+  jsx: FileCode,
+  ts: FileCode,
+  js: FileCode,
+  mjs: FileCode,
+  css: FileType,
+  json: FileBraces,
+  md: FileText,
+  txt: FileText,
 };
 
-function fileIcon(path: string, asset: boolean) {
-  if (asset) return "▣";
-  return ICONS[extOf(path)] ?? "·";
+function fileIcon(path: string, asset: boolean): LucideIcon {
+  if (asset) return FileImage;
+  return ICONS[extOf(path)] ?? FileText;
 }
 
 /** The component's files: a tree of folders, code, styles and assets, plus its configuration. */
@@ -36,28 +57,34 @@ export function Explorer({ comp, selected, onSelect }: Props) {
   const status = getCompileStatus(customType(comp.id));
   const problemFiles = new Set(status?.problems.map((p) => p.file).filter(Boolean));
 
+  const contextMenu = useContextMenu();
   const tree = buildTree(Object.keys(comp.files));
   // New files go next to the last clicked file or folder.
   const baseDir = contextDir;
 
-  const newFile = () => {
-    const path = prompt("New file (use / for folders):", `${baseDir}NewFile.tsx`)?.trim();
+  const newFile = (dir = baseDir) => {
+    const path = prompt("New file (use / for folders):", `${dir}NewFile.tsx`)?.trim();
     if (!path) return;
     if (comp.files[path]) return alert(`${path} already exists.`);
     dispatch({ type: "writeFile", id: comp.id, path, file: text(starterFor(path)) });
     onSelect(path);
   };
 
-  const newFolder = () => {
-    const name = prompt("New folder:", `${baseDir}assets`)?.trim().replace(/\/+$/, "");
+  const newFolder = (dir = baseDir) => {
+    const name = prompt("New folder:", `${dir}assets`)?.trim().replace(/\/+$/, "");
     if (!name) return;
     dispatch({ type: "writeFile", id: comp.id, path: `${name}/${KEEP}`, file: text("") });
     setContextDir(`${name}/`);
   };
 
+  const uploadDir = useRef("");
+  const startUpload = (dir = baseDir) => {
+    uploadDir.current = dir;
+    uploadRef.current?.click();
+  };
   const upload = (files: FileList | null) => {
     for (const file of files ?? []) {
-      const path = `${baseDir}${file.name}`;
+      const path = `${uploadDir.current}${file.name}`;
       const reader = new FileReader();
       if (TEXT_EXTENSIONS.includes(extOf(file.name))) {
         reader.onload = () => dispatch({ type: "writeFile", id: comp.id, path, file: text(String(reader.result)) });
@@ -93,6 +120,30 @@ export function Explorer({ comp, selected, onSelect }: Props) {
     if (selected === node.path || (node.dir && selected.startsWith(node.path))) onSelect(CONFIG);
   };
 
+  const folderItems = (dir: string): MenuItem[] => [
+    { label: "New file…", icon: FilePlus, onSelect: () => newFile(dir) },
+    { label: "New folder…", icon: FolderPlus, onSelect: () => newFolder(dir) },
+    { label: "Upload assets…", icon: Upload, onSelect: () => startUpload(dir) },
+  ];
+
+  const nodeMenu = (node: TreeNode): MenuItem[] =>
+    tidy([
+      !node.dir && { label: "Open", icon: FileCode, onSelect: () => onSelect(node.path) },
+      !node.dir &&
+        isCodeFile(node.path) && {
+          label: "Set as entry file",
+          icon: Star,
+          checked: comp.entry === node.path,
+          disabled: comp.entry === node.path,
+          onSelect: () => dispatch({ type: "updateComponent", id: comp.id, patch: { entry: node.path } }),
+        },
+      { type: "separator" },
+      ...folderItems(node.dir ? node.path : dirOf(node.path)),
+      { type: "separator" },
+      { label: "Rename…", icon: Pencil, onSelect: () => rename(node) },
+      { label: "Delete", icon: Trash, danger: true, onSelect: () => remove(node) },
+    ]);
+
   const renderNode = (node: TreeNode, depth: number) => {
     const isOpen = !collapsed.has(node.path);
     const file = node.dir ? undefined : comp.files[node.path];
@@ -116,16 +167,22 @@ export function Explorer({ comp, selected, onSelect }: Props) {
             }
           }}
           title={node.path}
+          onContextMenu={(e) => contextMenu(e, nodeMenu(node))}
         >
-          <span className="tree-icon">{node.dir ? (isOpen ? "▾" : "▸") : fileIcon(node.path, file?.kind === "asset")}</span>
+          <span className="tree-icon">
+            {(() => {
+              const Icon = node.dir ? (isOpen ? ChevronDown : ChevronRight) : fileIcon(node.path, file?.kind === "asset");
+              return <Icon size={14} />;
+            })()}
+          </span>
           <span className={`tree-name${problemFiles.has(node.path) ? " has-problem" : ""}`}>{node.name}</span>
           {node.path === comp.entry && <span className="tree-badge">entry</span>}
           <span className="tree-actions" onClick={(e) => e.stopPropagation()}>
             <button title="Rename" onClick={() => rename(node)}>
-              ✎
+              <Pencil size={12} />
             </button>
             <button title="Delete" onClick={() => remove(node)}>
-              ✕
+              <Trash size={12} />
             </button>
           </span>
         </div>
@@ -139,14 +196,14 @@ export function Explorer({ comp, selected, onSelect }: Props) {
       <div className="studio-pane-header">
         <span>Files</span>
         <span className="studio-pane-actions">
-          <button title="New file" onClick={newFile}>
-            +
+          <button title="New file" onClick={() => newFile()}>
+            <FilePlus size={14} />
           </button>
-          <button title="New folder" onClick={newFolder}>
-            ⊞
+          <button title="New folder" onClick={() => newFolder()}>
+            <FolderPlus size={14} />
           </button>
-          <button title="Upload assets (images, fonts, …)" onClick={() => uploadRef.current?.click()}>
-            ⇪
+          <button title="Upload assets (images, fonts, …)" onClick={() => startUpload()}>
+            <Upload size={14} />
           </button>
         </span>
         <input
@@ -160,9 +217,11 @@ export function Explorer({ comp, selected, onSelect }: Props) {
           }}
         />
       </div>
-      <div className="studio-explorer-body">
+      <div className="studio-explorer-body" onContextMenu={(e) => contextMenu(e, folderItems(""))}>
         <div className={`tree-row tree-config${selected === CONFIG ? " is-selected" : ""}`} onClick={() => onSelect(CONFIG)}>
-          <span className="tree-icon">⚙</span>
+          <span className="tree-icon">
+            <Settings size={14} />
+          </span>
           <span className="tree-name">Configuration</span>
           <span className="tree-badge">{Object.keys(comp.dependencies).length} pkg</span>
         </div>

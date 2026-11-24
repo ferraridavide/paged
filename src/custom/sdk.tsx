@@ -62,6 +62,17 @@ export function useElement() {
   return ctx;
 }
 
+/**
+ * State the component manages itself, persisted in the document with the
+ * element (not shown in the sidebar): a camera position, a chosen tab, a
+ * snapshot… Setting it is an undoable edit. Read-only in print.
+ */
+export function useElementState<T>(key: string, initial: T): [T, (value: T) => void] {
+  const { node, update } = useElement();
+  const value = (node.state?.[key] as T | undefined) ?? initial;
+  return [value, (next: T) => update({ $state: { [key]: next } })];
+}
+
 type EditableProps = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   /** Tag to render, e.g. "h2", "p", "span". */
   as?: string;

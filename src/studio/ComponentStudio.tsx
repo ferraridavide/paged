@@ -1,3 +1,4 @@
+import { Puzzle } from "lucide-react";
 import { useState } from "react";
 import { getCompileStatus, useRegistryVersion, type Problem } from "../elements/registry";
 import { newId } from "../model/ids";
@@ -76,10 +77,7 @@ function Studio({
   return (
     <div className="studio">
       <header className="studio-header">
-        <button className="btn" onClick={onClose}>
-          ← {state.doc.title || "Document"}
-        </button>
-        <span className="muted">Component</span>
+        <Puzzle size={15} className="studio-header-icon" />
         <select
           className="input studio-switcher"
           value={comp.id}
@@ -96,7 +94,7 @@ function Studio({
           {status?.state === "ready" ? "Compiled" : status?.state === "error" ? "Failed" : "Compiling…"}
         </span>
         <span className="muted studio-header-hint">
-          Changes apply to the document as you type. Saved with the document.
+          Changes apply to “{state.doc.title || "Untitled"}” as you type, and are saved with it.
         </span>
       </header>
       <Explorer comp={comp} selected={selected} onSelect={setSelected} />
