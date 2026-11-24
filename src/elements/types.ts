@@ -52,6 +52,11 @@ export interface ElementComponentProps<P> {
   /** For page regions (header/footer): the page being rendered. */
   page?: PageInfo;
   selected?: boolean;
+  /**
+   * Edit mode only: start a new paragraph right after this element, as Enter
+   * does at the end of a heading.
+   */
+  insertTextAfter?: () => void;
 }
 
 type FieldBase<P> = { key: keyof P & string; label: string; help?: string };

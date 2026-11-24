@@ -7,7 +7,7 @@ export interface HeadingProps {
   level: number;
 }
 
-function Heading({ node, mode, root, update }: ElementComponentProps<HeadingProps>) {
+function Heading({ node, mode, root, update, insertTextAfter }: ElementComponentProps<HeadingProps>) {
   const tag = `h${Math.min(6, Math.max(1, node.props.level))}`;
   const className = `${root.className} hd-h${node.props.level}`;
   if (mode === "print") {
@@ -22,6 +22,7 @@ function Heading({ node, mode, root, update }: ElementComponentProps<HeadingProp
       placeholder="Heading"
       caretKey={`${node.id}/text`}
       onChange={(text) => update({ text })}
+      onEnter={insertTextAfter}
     />
   );
 }

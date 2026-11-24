@@ -144,7 +144,7 @@ export function formatShortcut(keys: string) {
     delete: "Del",
     escape: "Esc",
     "=": "+",
-    enter: "↩",
+    enter: isMac ? "↩" : "Enter",
   };
   const label = names[key.toLowerCase()] ?? key.toUpperCase();
   if (isMac) {

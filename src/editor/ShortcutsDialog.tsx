@@ -8,6 +8,7 @@ const GROUPS: { title: string; ids: (keyof Commands)[] }[] = [
   { title: "File", ids: ["open", "save", "print"] },
   { title: "Edit", ids: ["undo", "redo", "cut", "copy", "paste", "duplicate", "moveUp", "moveDown", "copyStyle", "pasteStyle", "remove", "deselect"] },
   { title: "View", ids: ["togglePreview", "boxModel", "inspector", "zoomIn", "zoomOut", "zoomReset"] },
+  { title: "Insert", ids: ["textBelow"] },
   { title: "Help", ids: ["shortcuts"] },
 ];
 

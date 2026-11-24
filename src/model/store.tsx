@@ -22,6 +22,8 @@ export type Action =
   | { type: "writeFile"; id: string; path: string; file: ComponentFile }
   | { type: "deleteFile"; id: string; path: string }
   | { type: "renameFile"; id: string; from: string; to: string }
+  | { type: "placeEphemeral"; index: number }
+  | { type: "settleEphemeral" }
   | { type: "undo" }
   | { type: "redo" };
 
@@ -34,6 +36,12 @@ export interface EditorState {
   lastInserted: string | null;
   /** Consecutive edits with the same key within COALESCE_MS share one undo step. */
   lastEdit: { key: string; at: number } | null;
+  /**
+   * A paragraph placed by clicking empty space (or ⌘↩), like a word
+   * processor's caret. It is kept only if text is typed into it: settling it
+   * removes it when empty (no undo step) or records it as one edit.
+   */
+  ephemeral: string | null;
 }
 
 const COALESCE_MS = 1000;
@@ -160,10 +168,60 @@ function coalesceKey(action: Action): string | null {
   }
 }
 
-export function reducer(state: EditorState, action: Action): EditorState {
+const isEmptyText = (n: ElementNode | undefined) => !!n && n.type === "text" && !String(n.props.text ?? "").trim();
+
+/** Ends the ephemeral paragraph: drops it if still empty, otherwise records it as one undo step. */
+function settle(state: EditorState): EditorState {
+  if (!state.ephemeral) return state;
+  const id = state.ephemeral;
+  const node = state.doc.elements.find((n) => n.id === id);
+  const without = { ...state.doc, elements: state.doc.elements.filter((n) => n.id !== id) };
+  if (!node || isEmptyText(node)) {
+    return {
+      ...state,
+      doc: node ? without : state.doc,
+      ephemeral: null,
+      selectedId: state.selectedId === id ? null : state.selectedId,
+    };
+  }
+  return { ...state, ephemeral: null, past: [...state.past, without].slice(-HISTORY_LIMIT), future: [], lastEdit: null };
+}
+
+/** Actions that only concern the ephemeral paragraph itself don't settle it. */
+function keepsEphemeral(action: Action, id: string) {
   switch (action.type) {
     case "select":
-      return { ...state, selectedId: action.id, lastEdit: null };
+      return action.id === id;
+    case "updateProps":
+    case "updateStyle":
+      return action.id === id;
+    case "placeEphemeral":
+    case "settleEphemeral":
+      return true;
+    default:
+      return false;
+  }
+}
+
+export function reducer(current: EditorState, action: Action): EditorState {
+  const state = current.ephemeral && !keepsEphemeral(action, current.ephemeral) ? settle(current) : current;
+
+  switch (action.type) {
+    case "select":
+      return state.selectedId === action.id && state === current ? state : { ...state, selectedId: action.id, lastEdit: null };
+    case "settleEphemeral":
+      return settle(state);
+    case "placeEphemeral": {
+      // Replace any previous ephemeral paragraph; its removal shifts later indexes.
+      let index = action.index;
+      const previous = state.ephemeral ? state.doc.elements.findIndex((n) => n.id === state.ephemeral) : -1;
+      const removed = previous >= 0 && isEmptyText(state.doc.elements[previous]);
+      const base = settle(state);
+      if (removed && previous < index) index--;
+      const node: ElementNode = { id: newId(), type: "text", props: { text: "" }, style: {} };
+      const elements = [...base.doc.elements.slice(0, index), node, ...base.doc.elements.slice(index)];
+      return { ...base, doc: { ...base.doc, elements }, selectedId: node.id, lastInserted: node.id, ephemeral: node.id, lastEdit: null };
+    }
     case "undo": {
       const prev = state.past.at(-1);
       if (!prev) return state;
@@ -193,6 +251,11 @@ export function reducer(state: EditorState, action: Action): EditorState {
   const result = applyToDoc(state, action);
   if (!result) return state;
 
+  // Typing into the ephemeral paragraph isn't history yet: settling records it.
+  if (state.ephemeral && "id" in action && action.id === state.ephemeral) {
+    return { ...state, doc: result.doc };
+  }
+
   const key = coalesceKey(action);
   const now = Date.now();
   const merge = key !== null && state.lastEdit?.key === key && now - state.lastEdit.at < COALESCE_MS;
@@ -207,6 +270,7 @@ export function reducer(state: EditorState, action: Action): EditorState {
     past: merge ? state.past : [...state.past, state.doc].slice(-HISTORY_LIMIT),
     future: [],
     lastEdit: key ? { key, at: now } : null,
+    ephemeral: action.type === "load" ? null : state.ephemeral,
   };
 }
 
@@ -263,19 +327,24 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     future: [],
     lastInserted: null,
     lastEdit: null,
+    ephemeral: null,
   }));
 
   // Autosave, debounced.
   useEffect(() => {
     const t = setTimeout(() => {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.doc));
+        // An empty ephemeral paragraph isn't content yet.
+        const doc = state.ephemeral
+          ? { ...state.doc, elements: state.doc.elements.filter((n) => n.id !== state.ephemeral || !isEmptyText(n)) }
+          : state.doc;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(doc));
       } catch {
         // Storage full or blocked: the document still lives in memory.
       }
     }, 400);
     return () => clearTimeout(t);
-  }, [state.doc]);
+  }, [state.doc, state.ephemeral]);
 
   // Handy for debugging and performance checks from the browser console.
   if (import.meta.env.DEV) (window as unknown as { __editor: unknown }).__editor = { state, dispatch };

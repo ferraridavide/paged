@@ -51,7 +51,7 @@ export function AppHeader({ commands: c }: { commands: Commands }) {
         item(c.deselect),
       ],
     },
-    { title: "Insert", items: () => insertItems(after) },
+    { title: "Insert", items: () => [item(c.textBelow), { type: "separator" }, ...insertItems(after)] },
     {
       title: "View",
       items: () => [

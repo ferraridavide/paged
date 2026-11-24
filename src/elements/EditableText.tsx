@@ -49,6 +49,11 @@ export function EditableText({
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     onKeyDown?.(e);
     if (e.defaultPrevented || composing.current) return;
+    // ⌘/Ctrl+Enter is the editor's "text below" shortcut, not a line break.
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      return;
+    }
     if (e.key === "Enter" && !multiline) {
       e.preventDefault();
       onEnter?.();

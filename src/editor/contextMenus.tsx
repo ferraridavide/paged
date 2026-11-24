@@ -10,6 +10,7 @@ import {
   Eye,
   Paintbrush,
   Pencil,
+  Pilcrow,
   Plus,
   Puzzle,
   Scissors,
@@ -46,6 +47,15 @@ export function useElementMenu() {
       { type: "header", label: def?.label ?? node.type },
       !isRegion && { label: "Insert above", icon: ArrowUpToLine, submenu: insertItems(index) },
       !isRegion && { label: "Insert below", icon: ArrowDownToLine, submenu: insertItems(index + 1) },
+      !isRegion && {
+        label: "Text below",
+        icon: Pilcrow,
+        shortcut: "mod+enter",
+        onSelect: () => {
+          ui.set({ mode: "edit" });
+          dispatch({ type: "placeEphemeral", index: index + 1 });
+        },
+      },
       { type: "separator" },
       {
         label: "Cut",

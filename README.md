@@ -8,7 +8,11 @@ computed by a small custom paginator (no Paged.js).
 The interface is a standard desktop-style editor: a menu bar (File, Edit,
 Insert, View, Components, Help), right-click menus on elements, pages and
 studio files, an inspector on the right, a status bar with zoom, and keyboard
-shortcuts (Help → Keyboard shortcuts, ⌘/). Every action is defined once in
+shortcuts (Help → Keyboard shortcuts, ⌘/). Like a word processor, clicking
+empty space between or after elements starts a paragraph there; it is kept
+only if you type into it (one undo step), otherwise it disappears. ⌘↩ starts
+a paragraph below the selected element, and so does Enter at the end of a
+heading. Every action is defined once in
 `src/editor/commands.tsx`, so menus, context menus and shortcuts agree.
 
 ```bash

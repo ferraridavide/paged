@@ -18,6 +18,7 @@ import {
   Paintbrush,
   PanelRight,
   Pencil,
+  Pilcrow,
   Plus,
   Printer,
   Puzzle,
@@ -268,6 +269,20 @@ export function useCommands() {
       run: () => {
         (document.activeElement as HTMLElement | null)?.blur();
         dispatch({ type: "select", id: null });
+      },
+    },
+
+    // Insert
+    textBelow: {
+      label: "Text below",
+      icon: Pilcrow,
+      keys: ["mod+enter"],
+      scope: "page",
+      enabled: inDocument,
+      run: () => {
+        ui.set({ mode: "edit" });
+        const lastFlow = doc.elements.reduce((last, n, i) => (getDefinition(n.type)?.region ? last : i), -1);
+        dispatch({ type: "placeEphemeral", index: index >= 0 ? index + 1 : lastFlow + 1 });
       },
     },
 

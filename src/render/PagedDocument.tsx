@@ -13,7 +13,7 @@ import { baseTypography, elementsCss, pageDimensions, scopedCustomCss, toReactSt
 import { useEditor } from "../model/store";
 import type { DocumentModel, ElementNode, Mode } from "../model/types";
 import { DocContext } from "./DocContext";
-import { ElementView } from "./ElementView";
+import { ElementView, InsertTextAfterContext } from "./ElementView";
 
 export interface LayoutStats {
   layout: PageLayout[];
@@ -213,6 +213,63 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
   };
 
   // In preview, clicking an element selects it.
+  // ---- Word-processor caret: click empty space to start a paragraph there ----
+
+  const docRef = useRef(doc);
+  docRef.current = doc;
+  const ephemeral = state.ephemeral;
+
+  /** Puts the caret in an existing empty paragraph next to `index` instead of adding another. */
+  const focusEmptyNear = (index: number) => {
+    for (const n of [docRef.current.elements[index - 1], docRef.current.elements[index]]) {
+      if (n?.type !== "text" || String(n.props.text ?? "").trim()) continue;
+      dispatch({ type: "select", id: n.id });
+      const el = pagesRef.current?.querySelector<HTMLElement>(`[data-caret-key="${CSS.escape(n.id)}/text"]`);
+      el?.focus();
+      return true;
+    }
+    return false;
+  };
+
+  const insertTextAfter = useCallback(
+    (id: string) => {
+      const index = docRef.current.elements.findIndex((n) => n.id === id) + 1;
+      if (index > 0 && !focusEmptyNear(index)) dispatch({ type: "placeEphemeral", index });
+    },
+    // focusEmptyNear only reads refs, so dispatch is the only dependency.
+    [dispatch],
+  );
+
+  const onPagesMouseDown = (e: React.MouseEvent) => {
+    if (mode !== "edit" || e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    const content = target.closest<HTMLElement>(".pd-content");
+    if (!content || target.closest(".ed-block, button, a, input")) return;
+    // Clicked between or after elements: insert before the first block below
+    // the pointer on this page, or after the page's last block.
+    e.preventDefault();
+    e.stopPropagation();
+    const blocks = [...content.querySelectorAll<HTMLElement>(":scope > .ed-block[data-index]")];
+    const below = blocks.find((b) => b.getBoundingClientRect().top > e.clientY);
+    const lastFlow = docRef.current.elements.reduce((last, n, i) => (getDefinition(n.type)?.region ? last : i), -1);
+    const index = below
+      ? Number(below.dataset.index)
+      : blocks.length
+        ? Number(blocks[blocks.length - 1].dataset.index) + 1
+        : lastFlow + 1;
+    if (!focusEmptyNear(index)) dispatch({ type: "placeEphemeral", index });
+  };
+
+  // Leaving the ephemeral paragraph (not just the window) settles it.
+  const onPagesBlur = (e: React.FocusEvent) => {
+    if (!ephemeral || !document.hasFocus()) return;
+    const from = (e.target as HTMLElement).closest<HTMLElement>("[data-node-id]");
+    if (from?.dataset.nodeId !== ephemeral) return;
+    const to = e.relatedTarget as HTMLElement | null;
+    if (to?.closest(`[data-node-id="${CSS.escape(ephemeral)}"]`)) return;
+    dispatch({ type: "settleEphemeral" });
+  };
+
   const onPreviewClick = (e: React.MouseEvent) => {
     if (mode !== "print") return;
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-node-id]");
@@ -241,41 +298,45 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
       {mode === "print" && selectedId && (
         <style>{`.pd-print .pd-pages [data-node-id="${CSS.escape(selectedId)}"] { outline: 2px solid #4f46e5; outline-offset: 2px; }`}</style>
       )}
-      <DocContext.Provider value={doc}>
-        <div className="pd-measure" aria-hidden inert style={{ width: `calc(${width}mm - ${m.left} - ${m.right})` }}>
-          <div ref={probeRef} className="pd-probe" style={{ height: contentHeight }} />
-          <div ref={flowRef} className="pd-flow">
-            <MeasureFlow nodes={flowNodes} />
+      <InsertTextAfterContext.Provider value={mode === "edit" ? insertTextAfter : null}>
+        <DocContext.Provider value={doc}>
+          <div className="pd-measure" aria-hidden inert style={{ width: `calc(${width}mm - ${m.left} - ${m.right})` }}>
+            <div ref={probeRef} className="pd-probe" style={{ height: contentHeight }} />
+            <div ref={flowRef} className="pd-flow">
+              <MeasureFlow nodes={flowNodes} />
+            </div>
           </div>
-        </div>
 
-        <div
-          ref={pagesRef}
-          className="pd-pages"
-          style={{ zoom: settings.zoom }}
-          onClick={onPreviewClick}
-          onContextMenu={onContextMenu}
-          {...dndHandlers}
-        >
-          {pages.map((page, i) => (
-            <Page
-              key={i}
-              page={page}
-              visible={visible.has(i)}
-              number={i + 1}
-              total={pages.length}
-              doc={doc}
-              byId={byId}
-              indexOf={indexOf}
-              mode={mode}
-              selectedId={selectedId}
-              dropIndex={dropIndex}
-              onUpdate={onUpdate}
-              empty={i === 0 && mode === "edit" && flowNodes.length === 0}
-            />
-          ))}
-        </div>
-      </DocContext.Provider>
+          <div
+            ref={pagesRef}
+            className="pd-pages"
+            style={{ zoom: settings.zoom }}
+            onClick={onPreviewClick}
+            onMouseDown={onPagesMouseDown}
+            onBlur={onPagesBlur}
+            onContextMenu={onContextMenu}
+            {...dndHandlers}
+          >
+            {pages.map((page, i) => (
+              <Page
+                key={i}
+                page={page}
+                visible={visible.has(i)}
+                number={i + 1}
+                total={pages.length}
+                doc={doc}
+                byId={byId}
+                indexOf={indexOf}
+                mode={mode}
+                selectedId={selectedId}
+                dropIndex={dropIndex}
+                onUpdate={onUpdate}
+                empty={i === 0 && mode === "edit" && flowNodes.length === 0}
+              />
+            ))}
+          </div>
+        </DocContext.Provider>
+      </InsertTextAfterContext.Provider>
     </div>
   );
 });

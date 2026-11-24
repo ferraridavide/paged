@@ -1,4 +1,4 @@
-import { Component, memo, useCallback, type ReactNode } from "react";
+import { Component, createContext, memo, useCallback, useContext, type ReactNode } from "react";
 import { getCompileStatus, getDefinition, useRegistryVersion } from "../elements/registry";
 import type { FragmentInfo, PageInfo, RootAttributes } from "../elements/types";
 import { reportRuntimeError } from "../custom/logs";
@@ -16,10 +16,15 @@ interface Props {
 
 const noop = () => {};
 
+/** Provided by the pages in Edit mode: start a paragraph after an element. */
+export const InsertTextAfterContext = createContext<((id: string) => void) | null>(null);
+
 /** Looks up a node's element definition and renders its component in the given mode. */
 export const ElementView = memo(function ElementView({ node, mode, fragment, page, selected, onUpdate }: Props) {
   useRegistryVersion(); // re-render when a custom component (re)compiles
   const update = useCallback((patch: Record<string, unknown>) => onUpdate?.(node.id, patch), [node.id, onUpdate]);
+  const insertAfter = useContext(InsertTextAfterContext);
+  const insertTextAfter = useCallback(() => insertAfter?.(node.id), [insertAfter, node.id]);
   const def = getDefinition(node.type);
 
   let className = `hd-el hd-${node.type.replace(":", "-")}`;
@@ -56,6 +61,7 @@ export const ElementView = memo(function ElementView({ node, mode, fragment, pag
         mode={mode}
         root={root}
         update={onUpdate ? update : noop}
+        insertTextAfter={mode === "edit" && insertAfter ? insertTextAfter : undefined}
         fragment={fragment}
         page={page}
         selected={selected}
