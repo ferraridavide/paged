@@ -1,4 +1,5 @@
 import { useComponentCompiler } from "./custom/useComponentCompiler";
+import { DriveLaunchBanner } from "./drive/DriveUi";
 import { AppHeader } from "./editor/AppHeader";
 import { useCommands, useKeyboardShortcuts } from "./editor/commands";
 import { FormatBar } from "./editor/FormatBar";
@@ -40,6 +41,7 @@ export default function App() {
         </>
       )}
       <ShortcutsDialog commands={commands} />
+      <DriveLaunchBanner />
     </div>
   );
 }

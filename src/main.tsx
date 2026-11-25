@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import * as JsxRuntime from "react/jsx-runtime";
 import * as sdk from "./custom/sdk";
 import App from "./App";
+import { DriveProvider } from "./drive/DriveContext";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { UiProvider } from "./editor/ui";
 import { EditorProvider } from "./model/store";
@@ -25,9 +26,11 @@ createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <EditorProvider>
         <UiProvider>
-          <MenuProvider>
-            <App />
-          </MenuProvider>
+          <DriveProvider>
+            <MenuProvider>
+              <App />
+            </MenuProvider>
+          </DriveProvider>
         </UiProvider>
       </EditorProvider>
     </ErrorBoundary>

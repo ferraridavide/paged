@@ -1,4 +1,5 @@
 import { Minus, Plus, Puzzle } from "lucide-react";
+import { DriveStatus } from "../drive/DriveUi";
 import { getCompileStatus, getDefinition, useRegistryVersion } from "../elements/registry";
 import { useEditor, useSelectedNode } from "../model/store";
 import { customType } from "../model/types";
@@ -37,6 +38,7 @@ export function StatusBar() {
         </button>
       )}
       <span className="status-spacer" />
+      <DriveStatus />
       <span className="status-dim">{ui.settings.mode === "edit" ? "Editing" : "Preview"}</span>
       <div className="zoom-control">
         <button onClick={() => ui.zoomBy(-1)} disabled={ui.settings.zoom <= ZOOM_STEPS[0]} title="Zoom out">

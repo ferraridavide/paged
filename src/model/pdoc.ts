@@ -163,7 +163,11 @@ export function unpackDocument(bytes: Uint8Array): DocumentModel {
 
 /** Opens a .pdoc (zip) or a plain .json document. */
 export async function readDocumentFile(file: File): Promise<DocumentModel> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  return readDocumentBytes(new Uint8Array(await file.arrayBuffer()));
+}
+
+/** Opens a .pdoc (zip) or a plain .json document from its bytes. */
+export function readDocumentBytes(bytes: Uint8Array): DocumentModel {
   const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b; // "PK"
   const doc = isZip ? unpackDocument(bytes) : normalizeDocument(JSON.parse(strFromU8(bytes)));
   if (doc.version !== 1 || !Array.isArray(doc.elements)) throw new Error("Not a Paged Editor document.");

@@ -1,4 +1,5 @@
 import { ArrowLeft, Eye, Pencil, Printer, Puzzle } from "lucide-react";
+import { useDrive } from "../drive/DriveContext";
 import { useEditor } from "../model/store";
 import { MenuBar, tidy, type MenuItem } from "../ui/Menu";
 import { item, useInsertItems, type Commands } from "./commands";
@@ -8,6 +9,7 @@ import { useUi, ZOOM_STEPS } from "./ui";
 export function AppHeader({ commands: c }: { commands: Commands }) {
   const { state, dispatch } = useEditor();
   const ui = useUi();
+  const drive = useDrive();
   const insertItems = useInsertItems();
   const { doc, selectedId } = state;
   const after = (() => {
@@ -18,16 +20,21 @@ export function AppHeader({ commands: c }: { commands: Commands }) {
   const menus: { title: string; items: () => MenuItem[] }[] = [
     {
       title: "File",
-      items: () => [
+      items: () =>
+        tidy([
         item(c.newDocument),
         item(c.open),
+        item(c.openDrive),
+        { type: "separator" },
         item(c.save),
+        item(c.saveDriveAs),
+        drive.link && item(c.download),
         { type: "separator" },
         item(c.loadSample),
         { type: "separator" },
         item(c.pageSetup),
         item(c.print),
-      ],
+      ]),
     },
     {
       title: "Edit",

@@ -7,8 +7,11 @@ import {
   ArrowDown,
   ArrowUp,
   ClipboardPaste,
+  CloudDownload,
+  CloudUpload,
   Copy,
   CopyPlus,
+  Download,
   Eraser,
   Eye,
   FilePlus,
@@ -39,6 +42,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { useDrive } from "../drive/DriveContext";
 import { ELEMENTS, GROUPS, getCompileStatus, getDefinition, useRegistryVersion } from "../elements/registry";
 import { newId } from "../model/ids";
 import { packDocument, readDocumentFile } from "../model/pdoc";
@@ -92,8 +96,10 @@ function download(bytes: Uint8Array, name: string) {
 export function useCommands() {
   const { state, dispatch } = useEditor();
   const ui = useUi();
+  const drive = useDrive();
   useRegistryVersion();
   const { doc, selectedId } = state;
+  const driveIdle = drive.status === "idle";
   const inDocument = ui.studio === null;
   const format = useRichFormat();
   const canFormat = inDocument && format.active;
@@ -117,6 +123,7 @@ export function useCommands() {
       run: () => {
         if (!confirm("Start a new, empty document? The current one is replaced (it stays in undo history).")) return;
         dispatch({ type: "load", doc: { ...sampleDocument(), title: "Untitled", elements: [], components: [] } });
+        drive.unlink();
         ui.openStudio(null);
       },
     },
@@ -130,17 +137,41 @@ export function useCommands() {
         if (!file) return;
         try {
           dispatch({ type: "load", doc: await readDocumentFile(file) });
+          drive.unlink();
           ui.openStudio(null);
         } catch (err) {
           alert(`Could not open: ${(err as Error).message}`);
         }
       },
     },
+    openDrive: {
+      label: "Open from Google Drive…",
+      icon: CloudDownload,
+      keys: ["mod+shift+o"],
+      scope: "always",
+      enabled: driveIdle,
+      run: drive.open,
+    },
+    // Saves back to Google Drive when the document came from there; else downloads a .pdoc.
     save: {
-      label: "Save as .pdoc",
-      icon: Save,
+      label: drive.link ? "Save to Google Drive" : "Save as .pdoc",
+      icon: drive.link ? CloudUpload : Save,
       keys: ["mod+s"],
       scope: "always",
+      enabled: driveIdle,
+      run: () => (drive.link ? drive.save() : download(packDocument(doc), `${doc.title || "document"}.pdoc`)),
+    },
+    saveDriveAs: {
+      label: "Save to Google Drive as…",
+      icon: CloudUpload,
+      keys: ["mod+shift+s"],
+      scope: "always",
+      enabled: driveIdle,
+      run: drive.saveAs,
+    },
+    download: {
+      label: "Download .pdoc",
+      icon: Download,
       run: () => download(packDocument(doc), `${doc.title || "document"}.pdoc`),
     },
     loadSample: {
@@ -148,6 +179,7 @@ export function useCommands() {
       icon: FileText,
       run: () => {
         dispatch({ type: "load", doc: sampleDocument() });
+        drive.unlink();
         ui.openStudio(null);
       },
     },

@@ -219,6 +219,16 @@ and print.
 - **QR code**: `react-qr-code` from esm.sh.
 - **3D scene**: three.js, orbit in Edit mode; print uses the saved still.
 
+## Google Drive
+
+**File → Open from Google Drive…** (⇧⌘O) opens a `.pdoc` from Drive with the
+Google Picker; **⌘S** then saves a new revision of that file, and
+**Save to Google Drive as…** (⇧⌘S) creates one in a folder you pick. It runs
+entirely in the browser (Google Identity Services + Drive REST API, scope
+`drive.file`) and is in `src/drive/`. It needs a Google Cloud project and three
+values in `.env.local`: see [docs/google-drive.md](docs/google-drive.md),
+which also covers Drive's "Open with" menu over a Cloudflare tunnel.
+
 ## The .pdoc format
 
 **Save .pdoc** writes a zip, like .docx:
