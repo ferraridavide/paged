@@ -13,10 +13,12 @@ import {
   CopyPlus,
   Download,
   Eraser,
+  ExternalLink,
   Eye,
   FilePlus,
   FileText,
   FolderOpen,
+  GitCommitHorizontal,
   Keyboard,
   Paintbrush,
   PanelRight,
@@ -42,6 +44,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { COMMIT_HASH, COMMIT_URL, REPO_URL } from "../build-info";
 import { useDrive } from "../drive/DriveContext";
 import { ELEMENTS, GROUPS, getCompileStatus, getDefinition, useRegistryVersion } from "../elements/registry";
 import { newId } from "../model/ids";
@@ -457,6 +460,17 @@ export function useCommands() {
       keys: ["mod+/"],
       scope: "always",
       run: () => ui.setShortcutsOpen(true),
+    },
+    github: {
+      label: "Paged on GitHub",
+      icon: ExternalLink,
+      run: () => window.open(REPO_URL, "_blank", "noopener"),
+    },
+    commit: {
+      label: COMMIT_HASH ? `Version ${COMMIT_HASH.slice(0, 7)}` : "Version unknown",
+      icon: GitCommitHorizontal,
+      enabled: COMMIT_HASH !== "",
+      run: () => window.open(COMMIT_URL, "_blank", "noopener"),
     },
   } satisfies Record<string, Command>;
 
