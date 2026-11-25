@@ -1,7 +1,9 @@
 import { useComponentCompiler } from "./custom/useComponentCompiler";
 import { AppHeader } from "./editor/AppHeader";
 import { useCommands, useKeyboardShortcuts } from "./editor/commands";
+import { FormatBar } from "./editor/FormatBar";
 import { Inspector } from "./editor/Inspector";
+import { useRichFormat } from "./editor/richFormat";
 import { ShortcutsDialog } from "./editor/ShortcutsDialog";
 import { StatusBar } from "./editor/StatusBar";
 import { useUi } from "./editor/ui";
@@ -15,6 +17,7 @@ import { ComponentStudio } from "./studio/ComponentStudio";
 export default function App() {
   const ui = useUi();
   const commands = useCommands();
+  const format = useRichFormat();
   useKeyboardShortcuts(commands);
   useComponentCompiler();
 
@@ -33,6 +36,7 @@ export default function App() {
           </main>
           {ui.settings.inspector && <Inspector />}
           <StatusBar />
+          <FormatBar format={format} />
         </>
       )}
       <ShortcutsDialog commands={commands} />

@@ -11,6 +11,7 @@ import { restoreCaret, caretRecord } from "../layout/caret";
 import { paginate, reconcile, type PageLayout } from "../layout/paginate";
 import { baseTypography, elementsCss, pageDimensions, scopedCustomCss, toReactStyle } from "../model/css";
 import { useEditor } from "../model/store";
+import { propsRuns, runsText, type Run } from "../model/runs";
 import type { DocumentModel, ElementNode, Mode } from "../model/types";
 import { DocContext } from "./DocContext";
 import { ElementView, InsertTextAfterContext } from "./ElementView";
@@ -138,8 +139,8 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
     (id: string, patch: Record<string, unknown>) => {
       const node = byIdRef.current.get(id);
       const caret = caretRecord();
-      if (node && typeof patch.text === "string" && typeof node.props.text === "string" && caret?.key === `${id}/text`) {
-        const delta = patch.text.length - node.props.text.length;
+      if (node && Array.isArray(patch.runs) && node.type === "text" && caret?.key === `${id}/text`) {
+        const delta = runsText(patch.runs as Run[]).length - runsText(propsRuns(node.props)).length;
         if (delta) {
           setPages((prev) =>
             prev.map((page) => ({
@@ -222,7 +223,7 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
   /** Puts the caret in an existing empty paragraph next to `index` instead of adding another. */
   const focusEmptyNear = (index: number) => {
     for (const n of [docRef.current.elements[index - 1], docRef.current.elements[index]]) {
-      if (n?.type !== "text" || String(n.props.text ?? "").trim()) continue;
+      if (n?.type !== "text" || runsText(propsRuns(n.props)).trim()) continue;
       dispatch({ type: "select", id: n.id });
       const el = pagesRef.current?.querySelector<HTMLElement>(`[data-caret-key="${CSS.escape(n.id)}/text"]`);
       el?.focus();

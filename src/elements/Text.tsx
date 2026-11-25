@@ -1,28 +1,44 @@
-import { EditableText } from "./EditableText";
+import { marksStyle, propsRuns, replaceRange, runsText, sliceRuns, type Run } from "../model/runs";
+import { RichText } from "./RichText";
 import type { ElementComponentProps, ElementDefinition } from "./types";
 
+/** A paragraph of inline runs, each with its own formatting (bold, colour, size…). */
 export interface TextProps {
-  text: string;
+  runs: Run[];
 }
 
 function Text({ node, mode, root, update, fragment }: ElementComponentProps<TextProps>) {
-  const { text } = node.props;
+  const runs = propsRuns(node.props as unknown as Record<string, unknown>);
   const from = fragment?.from ?? 0;
-  const to = fragment?.to ?? text.length;
-  const part = text.slice(from, to);
+  const to = fragment?.to ?? runsText(runs).length;
+  const part = sliceRuns(runs, from, to);
 
-  // Print mode must stay a single text node: the paginator measures its lines.
-  if (mode === "print") return <p {...root}>{part}</p>;
+  // Print: plain text for unformatted runs, a <span> per formatted run. The
+  // paginator measures this and splits it by line across the runs.
+  if (mode === "print") {
+    return (
+      <p {...root}>
+        {part.map((r, i) =>
+          r.marks ? (
+            <span key={i} style={marksStyle(r.marks)}>
+              {r.text}
+            </span>
+          ) : (
+            r.text
+          ),
+        )}
+      </p>
+    );
+  }
   return (
-    <EditableText
+    <RichText
       as="p"
       {...root}
-      multiline
-      value={part}
+      runs={part}
       placeholder={fragment?.continued ? undefined : "Start typing…"}
       caretKey={`${node.id}/text`}
       caretBase={from}
-      onChange={(v) => update({ text: text.slice(0, from) + v + text.slice(to) })}
+      onChange={(next) => update({ runs: replaceRange(runs, from, to, next) })}
     />
   );
 }
@@ -32,9 +48,9 @@ export const textElement: ElementDefinition<TextProps> = {
   label: "Text",
   icon: "¶",
   group: "Text",
-  create: () => ({ props: { text: "" } }),
-  fields: [{ key: "text", label: "Text", kind: "textarea" }],
-  summary: (p) => p.text,
+  create: () => ({ props: { runs: [] } }),
+  fields: [{ key: "runs", label: "Text", kind: "runs", help: "Select text on the page to format it." }],
+  summary: (p) => runsText(propsRuns(p as unknown as Record<string, unknown>)),
   split: "lines",
   Component: Text,
 };

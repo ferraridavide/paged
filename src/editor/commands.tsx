@@ -21,6 +21,10 @@ import {
   Pilcrow,
   Plus,
   Printer,
+  Italic,
+  RemoveFormatting,
+  Strikethrough,
+  Underline,
   Puzzle,
   Redo2,
   Save,
@@ -45,6 +49,7 @@ import { printPages } from "../render/print";
 import { newComponent } from "../studio/files";
 import type { MenuItem } from "../ui/Menu";
 import { elementIcon } from "./icons";
+import { useRichFormat } from "./richFormat";
 import { useUi, ZOOM_STEPS } from "./ui";
 
 /**
@@ -90,6 +95,8 @@ export function useCommands() {
   useRegistryVersion();
   const { doc, selectedId } = state;
   const inDocument = ui.studio === null;
+  const format = useRichFormat();
+  const canFormat = inDocument && format.active;
   const index = doc.elements.findIndex((n) => n.id === selectedId);
   const node = index >= 0 ? doc.elements[index] : null;
   const hasSelection = inDocument && node !== null;
@@ -284,6 +291,49 @@ export function useCommands() {
         const lastFlow = doc.elements.reduce((last, n, i) => (getDefinition(n.type)?.region ? last : i), -1);
         dispatch({ type: "placeEphemeral", index: index >= 0 ? index + 1 : lastFlow + 1 });
       },
+    },
+
+    // Format (selected text in a paragraph)
+    bold: {
+      label: "Bold",
+      keys: ["mod+b"],
+      scope: "page",
+      enabled: canFormat,
+      checked: canFormat && format.isOn("bold"),
+      run: () => format.toggle("bold"),
+    },
+    italic: {
+      label: "Italic",
+      icon: Italic,
+      keys: ["mod+i"],
+      scope: "page",
+      enabled: canFormat,
+      checked: canFormat && format.isOn("italic"),
+      run: () => format.toggle("italic"),
+    },
+    underline: {
+      label: "Underline",
+      icon: Underline,
+      keys: ["mod+u"],
+      scope: "page",
+      enabled: canFormat,
+      checked: canFormat && format.isOn("underline"),
+      run: () => format.toggle("underline"),
+    },
+    strike: {
+      label: "Strikethrough",
+      icon: Strikethrough,
+      keys: ["mod+shift+x"],
+      scope: "page",
+      enabled: canFormat,
+      checked: canFormat && format.isOn("strike"),
+      run: () => format.toggle("strike"),
+    },
+    clearFormatting: {
+      label: "Clear formatting",
+      icon: RemoveFormatting,
+      enabled: canFormat,
+      run: () => format.clear(),
     },
 
     // View

@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import type { FieldDef } from "../../elements/types";
+import { applyPlainEdit, runsText, type Run } from "../../model/runs";
 import { ColorInput, Row, Select, TextInput } from "./inputs";
 
 /** Renders one element parameter from its FieldDef. */
@@ -25,6 +26,18 @@ export function FieldInput({
       return (
         <Row label={field.label} help={help}>
           <textarea className="input" rows={5} value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} />
+        </Row>
+      );
+    case "runs":
+      // Plain-text view of formatted runs; editing keeps the formatting of untouched text.
+      return (
+        <Row label={field.label} help={help}>
+          <textarea
+            className="input"
+            rows={5}
+            value={runsText((value as Run[]) ?? [])}
+            onChange={(e) => onChange(applyPlainEdit((value as Run[]) ?? [], e.target.value))}
+          />
         </Row>
       );
     case "lines":

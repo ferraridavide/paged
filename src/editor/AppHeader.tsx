@@ -53,6 +53,18 @@ export function AppHeader({ commands: c }: { commands: Commands }) {
     },
     { title: "Insert", items: () => [item(c.textBelow), { type: "separator" }, ...insertItems(after)] },
     {
+      title: "Format",
+      items: () => [
+        { type: "header", label: c.bold.enabled ? "Selected text" : "Select text in a paragraph" },
+        item(c.bold),
+        item(c.italic),
+        item(c.underline),
+        item(c.strike),
+        { type: "separator" },
+        item(c.clearFormatting),
+      ],
+    },
+    {
       title: "View",
       items: () => [
         item(c.editMode),

@@ -91,6 +91,33 @@ function lineBoxes(rects: DOMRectList, origin: number): Line[] {
   return lines;
 }
 
+/**
+ * Character offsets across all text nodes of an element: paragraphs are made
+ * of inline runs (<span>s), so one paragraph can hold many text nodes.
+ */
+function textIndex(el: HTMLElement) {
+  const nodes: { node: Text; start: number }[] = [];
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let total = 0;
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const t = n as Text;
+    if (!t.data.length) continue;
+    nodes.push({ node: t, start: total });
+    total += t.data.length;
+  }
+  const locate = (offset: number) => {
+    let lo = 0;
+    let hi = nodes.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (nodes[mid].start <= offset) lo = mid;
+      else hi = mid - 1;
+    }
+    return { node: nodes[lo].node, local: offset - nodes[lo].start };
+  };
+  return { total, locate };
+}
+
 function splitLines(
   el: HTMLElement,
   from: number | undefined,
@@ -98,10 +125,11 @@ function splitLines(
   origin: number,
   force: boolean,
 ): Split | null {
-  const textNode = el.firstChild;
-  if (!(textNode instanceof Text) || !textNode.data.length) return null;
+  const text = textIndex(el);
+  if (!text.total) return null;
   const range = document.createRange();
-  range.selectNodeContents(textNode);
+  range.selectNodeContents(el);
+  // Rects of every text and inline box; runs of different sizes on one line overlap vertically.
   const lines = lineBoxes(range.getClientRects(), origin);
   if (lines.length < 2) return null;
 
@@ -114,16 +142,20 @@ function splitLines(
   const boundary = (i: number) =>
     i === 0 ? contentTop : i >= lines.length ? contentBottom : (lines[i - 1].bottom + lines[i].top) / 2;
 
-  const charTop = (i: number) => {
-    range.setStart(textNode, i);
-    range.setEnd(textNode, i + 1);
+  // Vertical centre of the character at a paragraph offset. Centres (not
+  // tops) stay on the right side of a line boundary even when a line mixes
+  // font sizes, since glyphs of different sizes share a baseline.
+  const charMiddle = (i: number) => {
+    const { node, local } = text.locate(i);
+    range.setStart(node, local);
+    range.setEnd(node, Math.min(local + 1, node.data.length));
     const r = range.getClientRects()[0] ?? range.getBoundingClientRect();
-    return r.top - origin;
+    return (r.top + r.bottom) / 2 - origin;
   };
 
   // Which line does this fragment start on?
-  const startTop = from ? charTop(from) : lines[0].top;
-  let startLine = lines.findIndex((l) => startTop < l.bottom - 1);
+  const startMiddle = from ? charMiddle(from) : (lines[0].top + lines[0].bottom) / 2;
+  const startLine = lines.findIndex((l) => startMiddle < l.bottom + 0.5);
   if (startLine < 0) return null;
 
   // Last line that fits, keeping 2 lines together on each side when we can.
@@ -141,17 +173,17 @@ function splitLines(
     cut = lastFit;
   }
 
-  // First character on line `cut + 1`.
-  const nextLineTop = lines[cut + 1].top;
+  // First character below the boundary between line `cut` and `cut + 1`.
+  const split = boundary(cut + 1);
   let lo = from ?? 0;
-  let hi = textNode.data.length - 1;
+  let hi = text.total - 1;
   while (lo < hi) {
     const mid = (lo + hi) >> 1;
-    if (charTop(mid) >= nextLineTop - 1) hi = mid;
+    if (charMiddle(mid) >= split) hi = mid;
     else lo = mid + 1;
   }
   if (lo <= (from ?? 0)) return null;
-  return { to: lo, nextStart: boundary(cut + 1) };
+  return { to: lo, nextStart: split };
 }
 
 function splitBlock(

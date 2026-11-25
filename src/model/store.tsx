@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useReducer, type Dispatch, type R
 import { getDefinition } from "../elements/registry";
 import { newId } from "./ids";
 import { sampleDocument } from "./sample";
+import { propsRuns, runsText } from "./runs";
 import type { ComponentFile, ComponentSource, DocumentModel, ElementNode, PageSettings, StyleMap } from "./types";
 
 export type Action =
@@ -168,7 +169,7 @@ function coalesceKey(action: Action): string | null {
   }
 }
 
-const isEmptyText = (n: ElementNode | undefined) => !!n && n.type === "text" && !String(n.props.text ?? "").trim();
+const isEmptyText = (n: ElementNode | undefined) => !!n && n.type === "text" && !runsText(propsRuns(n.props)).trim();
 
 /** Ends the ephemeral paragraph: drops it if still empty, otherwise records it as one undo step. */
 function settle(state: EditorState): EditorState {
@@ -218,7 +219,7 @@ export function reducer(current: EditorState, action: Action): EditorState {
       const removed = previous >= 0 && isEmptyText(state.doc.elements[previous]);
       const base = settle(state);
       if (removed && previous < index) index--;
-      const node: ElementNode = { id: newId(), type: "text", props: { text: "" }, style: {} };
+      const node: ElementNode = { id: newId(), type: "text", props: { runs: [] }, style: {} };
       const elements = [...base.doc.elements.slice(0, index), node, ...base.doc.elements.slice(index)];
       return { ...base, doc: { ...base.doc, elements }, selectedId: node.id, lastInserted: node.id, ephemeral: node.id, lastEdit: null };
     }
@@ -301,7 +302,13 @@ export function normalizeDocument(input: DocumentModel | LegacyDocument): Docume
     );
     return { id: c.id, name: c.name, entry: "index.tsx", files: { "index.tsx": { kind: "text", content: source } }, dependencies };
   });
-  return { ...doc, customCss: doc.customCss ?? "", components };
+  // Paragraphs were a plain `text` string before inline runs.
+  const elements = doc.elements.map((n) => {
+    if (n.type !== "text" || Array.isArray(n.props.runs)) return n;
+    const { text: _text, ...rest } = n.props;
+    return { ...n, props: { ...rest, runs: propsRuns(n.props) } };
+  });
+  return { ...doc, elements, customCss: doc.customCss ?? "", components };
 }
 
 function loadInitialDocument(): DocumentModel {

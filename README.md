@@ -56,6 +56,27 @@ DocumentModel (JSON, in memory + localStorage)
   for both modes. Only pages near the viewport render their content.
 - **`src/model/css.ts`**: per-element styles become `[data-node-id="…"]` rules.
 
+## Formatted text (inline runs)
+
+A paragraph (`text` element) is a list of **runs**: pieces of text with their
+own marks (weight, italic, underline, strikethrough, font, size, colour,
+highlight). Selecting text shows a format bar; the Format menu and ⌘B / ⌘I /
+⌘U / ⇧⌘X work too. Formatting a selection splits the runs at its edges:
+
+```
+[the quick brown fox jumps]   select "fox", Bold
+[the quick brown ][fox][ jumps]   the middle run gets { weight: "700" }
+```
+
+- `src/model/runs.ts`: split, slice, replace and mark operations; neighbours
+  with identical marks are merged back together.
+- `src/elements/RichText.tsx`: the editable paragraph. Typing goes through the
+  browser and is read back; Enter, paste, replacing a selection and
+  formatting are applied to the runs, so the markup stays one span per run.
+- Runs render as inline spans, so the paginator still splits paragraphs by
+  line: it counts characters across all the spans' text nodes, and a run cut
+  by a page break continues with the same formatting on the next page.
+
 ## Custom components
 
 Documents carry their own React components. **Using** a component happens in

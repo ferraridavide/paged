@@ -63,7 +63,7 @@ type FieldBase<P> = { key: keyof P & string; label: string; help?: string };
 
 /** Parameters shown in the inspector's Content tab. */
 export type FieldDef<P> =
-  | (FieldBase<P> & { kind: "text" | "textarea" | "color" | "image" | "lines" | "table"; placeholder?: string })
+  | (FieldBase<P> & { kind: "text" | "textarea" | "color" | "image" | "lines" | "table" | "runs"; placeholder?: string })
   | (FieldBase<P> & { kind: "number"; min?: number; max?: number; step?: number })
   | (FieldBase<P> & { kind: "select"; options: { value: string; label: string }[] })
   | (FieldBase<P> & { kind: "boolean" });
@@ -72,7 +72,8 @@ export type ElementGroup = "Text" | "Data" | "Media" | "Layout" | "Page" | "Cust
 
 /**
  * How the paginator may split an element across pages:
- * - "lines": by line of text, in `props.text` (single text node in print mode)
+ * - "lines": by line of text; units are character offsets into the element's
+ *   text, which may span several inline runs (text nodes) in print mode
  * - "items": by `<li>` child, in `props.items`
  * - "rows": by body row, in `props.rows`; the header row repeats on each page
  */

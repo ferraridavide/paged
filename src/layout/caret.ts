@@ -17,7 +17,7 @@ interface CaretRecord {
 }
 
 let last: CaretRecord | null = null;
-let pending: { key: string; offset: number } | null = null;
+let pending: { key: string; offset: number; end?: number } | null = null;
 
 export function caretRecord() {
   return last;
@@ -37,6 +37,47 @@ export function getCaretOffset(el: HTMLElement): number | null {
   pre.selectNodeContents(el);
   pre.setEnd(r.endContainer, r.endOffset);
   return pre.toString().length;
+}
+
+/** Text offset of a DOM position inside `el`, counting characters across inline elements. */
+export function offsetIn(el: HTMLElement, node: Node, offset: number) {
+  const pre = document.createRange();
+  pre.selectNodeContents(el);
+  pre.setEnd(node, offset);
+  return pre.toString().length;
+}
+
+/** The selection inside `el` as text offsets, or null if it isn't there. */
+export function getSelectionOffsets(el: HTMLElement): { start: number; end: number } | null {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return null;
+  const r = sel.getRangeAt(0);
+  if (!el.contains(r.startContainer) || !el.contains(r.endContainer)) return null;
+  return { start: offsetIn(el, r.startContainer, r.startOffset), end: offsetIn(el, r.endContainer, r.endOffset) };
+}
+
+function positionAt(el: HTMLElement, offset: number): [Node, number] {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let remaining = offset;
+  let lastText: Text | null = null;
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const t = n as Text;
+    if (remaining <= t.data.length) return [t, remaining];
+    remaining -= t.data.length;
+    lastText = t;
+  }
+  return lastText ? [lastText, lastText.data.length] : [el, el.childNodes.length];
+}
+
+/** Selects text offsets [start, end) inside `el`. */
+export function setSelectionOffsets(el: HTMLElement, start: number, end: number) {
+  const sel = window.getSelection();
+  if (!sel) return;
+  const range = document.createRange();
+  range.setStart(...positionAt(el, start));
+  range.setEnd(...positionAt(el, end));
+  sel.removeAllRanges();
+  sel.addRange(range);
 }
 
 export function setCaretOffset(el: HTMLElement, offset: number) {
@@ -81,6 +122,11 @@ export function requestCaret(key: string, offset: number) {
   pending = { key, offset };
 }
 
+/** Ask for [start, end) to be selected in field `key` after the next layout (e.g. after formatting). */
+export function requestSelection(key: string, start: number, end: number) {
+  pending = { key, offset: start, end };
+}
+
 if (typeof document !== "undefined") {
   document.addEventListener("selectionchange", () => {
     const el = caretTarget(window.getSelection()?.focusNode ?? null);
@@ -118,8 +164,11 @@ export function restoreCaret(root: HTMLElement | null) {
   if (!pending && !lostFocus && active !== el && !candidates.includes(active as HTMLElement)) return;
   if (!pending && active === el) return;
 
+  const end = pending?.end;
   pending = null;
   el.focus({ preventScroll: true });
-  setCaretOffset(el, Math.max(0, Math.min(target.offset - baseOf(el), lengthOf(el))));
+  const clamp = (n: number) => Math.max(0, Math.min(n - baseOf(el), lengthOf(el)));
+  if (end !== undefined) setSelectionOffsets(el, clamp(target.offset), clamp(end));
+  else setCaretOffset(el, clamp(target.offset));
   el.scrollIntoView({ block: "nearest" });
 }
