@@ -11,6 +11,7 @@ export type Action =
   | { type: "insertNode"; node: ElementNode; index?: number }
   | { type: "updateProps"; id: string; patch: Record<string, unknown> }
   | { type: "updateStyle"; id: string; style: StyleMap }
+  | { type: "setClasses"; id: string; classes: string[] }
   | { type: "remove"; id: string }
   | { type: "move"; id: string; to: number }
   | { type: "duplicate"; id: string }
@@ -84,6 +85,13 @@ function applyToDoc(state: EditorState, action: Action): { doc: DocumentModel; s
     }
     case "updateStyle":
       return { doc: updateElement(doc, action.id, (n) => ({ ...n, style: action.style })) };
+    case "setClasses":
+      return {
+        doc: updateElement(doc, action.id, (n) => {
+          const { classes: _old, ...rest } = n;
+          return action.classes.length ? { ...rest, classes: action.classes } : rest;
+        }),
+      };
     case "remove": {
       const index = doc.elements.findIndex((n) => n.id === action.id);
       const elements = doc.elements.filter((n) => n.id !== action.id);
@@ -195,6 +203,7 @@ function keepsEphemeral(action: Action, id: string) {
       return action.id === id;
     case "updateProps":
     case "updateStyle":
+    case "setClasses":
       return action.id === id;
     case "placeEphemeral":
     case "settleEphemeral":

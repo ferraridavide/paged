@@ -294,8 +294,9 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
     >
       <style>{documentCss}</style>
       <style>{componentsCss()}</style>
-      <style>{elementsCss(doc)}</style>
+      {/* Document CSS first, so a style set on one element wins over a document-wide rule. */}
       <style>{scopedCustomCss(doc)}</style>
+      <style>{elementsCss(doc)}</style>
       {mode === "print" && selectedId && (
         <style>{`.pd-print .pd-pages [data-node-id="${CSS.escape(selectedId)}"] { outline: 2px solid #4f46e5; outline-offset: 2px; }`}</style>
       )}

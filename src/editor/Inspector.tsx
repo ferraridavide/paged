@@ -7,7 +7,10 @@ import { useEditor, useSelectedNode } from "../model/store";
 import type { ElementNode, PageSettings } from "../model/types";
 import { FieldInput } from "./fields/FieldInput";
 import { StyleEditor } from "./fields/StyleEditor";
-import { ColorInput, DraftTextarea, FONT_FAMILIES, Row, Segmented, Select, TextInput } from "./fields/inputs";
+import { ClassInput } from "./fields/ClassInput";
+import { CssEditor } from "./fields/CssEditor";
+import { knownClasses } from "../model/css";
+import { ColorInput, FONT_FAMILIES, Row, Segmented, Select, TextInput } from "./fields/inputs";
 
 /** Right sidebar: the selected element's parameters and styles, or page settings. */
 export function Inspector() {
@@ -77,7 +80,7 @@ function PanelResizer() {
 }
 
 function ElementPanel({ node }: { node: ElementNode }) {
-  const { dispatch } = useEditor();
+  const { state, dispatch } = useEditor();
   const [tab, setTab] = useState<"content" | "style">("content");
   const def = getDefinition(node.type);
   const styleCount = Object.keys(node.style).length;
@@ -97,6 +100,14 @@ function ElementPanel({ node }: { node: ElementNode }) {
           <X size={15} />
         </button>
       </header>
+      <div className="class-field">
+        <span className="row-label">Classes</span>
+        <ClassInput
+          classes={node.classes ?? []}
+          known={knownClasses(state.doc)}
+          onChange={(classes) => dispatch({ type: "setClasses", id: node.id, classes })}
+        />
+      </div>
       <nav className="tabs">
         <button className={tab === "content" ? "is-on" : ""} onClick={() => setTab("content")}>
           Content
@@ -130,7 +141,7 @@ function ElementPanel({ node }: { node: ElementNode }) {
             </div>
           </>
         ) : (
-          <StyleEditor style={node.style} onChange={(style) => dispatch({ type: "updateStyle", id: node.id, style })} />
+          <StyleEditor elementId={node.id} style={node.style} onChange={(style) => dispatch({ type: "updateStyle", id: node.id, style })} />
         )}
       </div>
     </>
@@ -217,10 +228,12 @@ function PagePanel() {
           <p className="muted">
             Rules for the whole document, scoped to the pages, e.g. <code>.hd-heading {"{"} color: navy; {"}"}</code>.
           </p>
-          <DraftTextarea
+          <CssEditor
+            kind="stylesheet"
+            path="inmemory://paged/document.css"
+            height={260}
             value={doc.customCss}
-            onCommit={(customCss) => dispatch({ type: "updateDoc", patch: { customCss } })}
-            rows={8}
+            onChange={(customCss) => customCss !== doc.customCss && dispatch({ type: "updateDoc", patch: { customCss } })}
           />
         </details>
       </div>

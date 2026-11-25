@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /** Small form primitives shared by the inspector panels. */
 
@@ -80,38 +80,6 @@ export function Segmented({
         </button>
       ))}
     </span>
-  );
-}
-
-/** A textarea that edits a local draft and only commits on blur. */
-export function DraftTextarea({
-  value,
-  onCommit,
-  rows = 6,
-  placeholder,
-  className = "input mono",
-}: {
-  value: string;
-  onCommit: (v: string) => void;
-  rows?: number;
-  placeholder?: string;
-  className?: string;
-}) {
-  const [draft, setDraft] = useState<string | null>(null);
-  return (
-    <textarea
-      className={className}
-      rows={rows}
-      spellCheck={false}
-      placeholder={placeholder}
-      value={draft ?? value}
-      onFocus={() => setDraft(value)}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => {
-        if (draft !== null && draft !== value) onCommit(draft);
-        setDraft(null);
-      }}
-    />
   );
 }
 

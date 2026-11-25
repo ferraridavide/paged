@@ -21,6 +21,8 @@ export interface ElementNode<P = Record<string, unknown>> {
    * document but not shown in the sidebar. Written via useElementState().
    */
   state?: Record<string, unknown>;
+  /** CSS class names, added in the inspector and styled from Document CSS. */
+  classes?: string[];
 }
 
 export type PageSize = "A4" | "A5" | "Letter" | "Legal";

@@ -525,7 +525,9 @@ export function useKeyboardShortcuts(commands: Record<string, Command>) {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      const inField = !!t?.matches?.("input, textarea, select");
+      // Code editors count as fields: Monaco takes input in its own element
+      // (not always a <textarea>) and handles undo, Escape and Backspace itself.
+      const inField = !!t?.matches?.("input, textarea, select") || !!t?.closest?.(".monaco-editor");
       const inText = !!t?.isContentEditable;
       for (const cmd of Object.values(ref.current)) {
         if (!cmd.keys?.some((k) => matches(e, k))) continue;

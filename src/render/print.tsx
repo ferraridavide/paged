@@ -52,8 +52,8 @@ export function printPages(doc: DocumentModel, layout: PageLayout[]) {
 <title>${escapeHtml(doc.title)}</title>
 <style>${documentCss}</style>
 <style>${componentsCss()}</style>
-<style>${elementsCss(doc)}</style>
 <style>${scopedCustomCss(doc)}</style>
+<style>${elementsCss(doc)}</style>
 <style>
 @page { size: ${width}mm ${height}mm; margin: 0; }
 html, body { margin: 0; padding: 0; background: white; }

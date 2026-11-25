@@ -28,6 +28,8 @@ export const ElementView = memo(function ElementView({ node, mode, fragment, pag
   const def = getDefinition(node.type);
 
   let className = `hd-el hd-${node.type.replace(":", "-")}`;
+  // The user's own classes, for styling from Document CSS.
+  if (node.classes?.length) className += ` ${node.classes.join(" ")}`;
   if (fragment?.continued) className += " hd-frag-continued";
   if (fragment?.continues) className += " hd-frag-continues";
   const root: RootAttributes = { "data-node-id": node.id, className };

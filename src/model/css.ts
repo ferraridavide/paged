@@ -54,10 +54,14 @@ export function textToStyle(text: string): StyleMap {
  * `position: running()` when they come from a stylesheet.
  */
 export function elementsCss(doc: DocumentModel) {
-  return doc.elements
+  const rules = doc.elements
     .filter((n) => Object.keys(n.style).length > 0)
     .map((n) => `[data-node-id="${n.id}"] {\n${declarations(n.style)}\n}`)
     .join("\n");
+  // Same @scope as the document CSS: scoped rules outrank unscoped ones of
+  // equal specificity, so without it any document-wide rule would beat a
+  // style set on one element. With both scoped, the later one (this) wins.
+  return rules ? `@scope (.pd-doc) {\n${rules}\n}` : "";
 }
 
 /** Typography shared by the edit sheet and the printed body. */
@@ -72,7 +76,8 @@ export function baseTypography(page: PageSettings): StyleMap {
 
 /**
  * The user's document-wide CSS, scoped to the document so it can't restyle
- * the editor around it.
+ * the editor around it. It is emitted before per-element styles, so a style
+ * set on one element wins over a document-wide rule.
  */
 export function scopedCustomCss(doc: DocumentModel) {
   const css = doc.customCss.replace(/<\/style/gi, "");
@@ -91,4 +96,23 @@ export function toReactStyle(style: StyleMap): React.CSSProperties {
     out[key] = value;
   }
   return out as React.CSSProperties;
+}
+
+/** A valid CSS class name (an identifier: no spaces, can't start with a digit). */
+export const CLASS_NAME = /^-?[_a-zA-Z][_a-zA-Z0-9-]*$/;
+
+/**
+ * Class names known to the document, most used first: those on elements and
+ * those in Document CSS selectors (declaration blocks are ignored, so values
+ * like `url(a.png)` don't count).
+ */
+export function knownClasses(doc: DocumentModel): { name: string; uses: number; inCss: boolean }[] {
+  const uses = new Map<string, number>();
+  for (const n of doc.elements) for (const c of n.classes ?? []) uses.set(c, (uses.get(c) ?? 0) + 1);
+  const selectors = doc.customCss.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{[^{}]*\}/g, " ");
+  const inCss = new Set([...selectors.matchAll(/\.(-?[_a-zA-Z][_a-zA-Z0-9-]*)/g)].map((m) => m[1]));
+  for (const c of inCss) if (!uses.has(c)) uses.set(c, 0);
+  return [...uses.entries()]
+    .map(([name, count]) => ({ name, uses: count, inCss: inCss.has(name) }))
+    .sort((a, b) => b.uses - a.uses || a.name.localeCompare(b.name));
 }

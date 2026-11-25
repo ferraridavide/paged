@@ -56,6 +56,20 @@ DocumentModel (JSON, in memory + localStorage)
   for both modes. Only pages near the viewport render their content.
 - **`src/model/css.ts`**: per-element styles become `[data-node-id="…"]` rules.
 
+## Classes and CSS
+
+Every element can carry CSS classes: type them into **Classes** at the top of
+the inspector (space, Enter or comma turns them into pills; Backspace removes
+the last; suggestions come from classes already used in the document and
+class selectors in Document CSS). Style them in **Document CSS** (Page panel);
+per-element CSS lives in the element's **Style** tab. Both CSS boxes are
+Monaco editors with completions, and apply as you type.
+
+Cascade, lowest to highest: built-in element styles (`document.css`),
+component CSS, Document CSS, then the element's own styles. Document CSS and
+element styles are both wrapped in `@scope (.pd-doc)` so neither can restyle
+the editor, and so the element's own styles win at equal specificity.
+
 ## Formatted text (inline runs)
 
 A paragraph (`text` element) is a list of **runs**: pieces of text with their

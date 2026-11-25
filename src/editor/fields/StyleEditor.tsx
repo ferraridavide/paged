@@ -1,6 +1,7 @@
 import { styleToText, textToStyle } from "../../model/css";
 import type { StyleMap } from "../../model/types";
-import { ColorInput, DraftTextarea, FONT_FAMILIES, Row, Segmented, Select, TextInput } from "./inputs";
+import { CssEditor } from "./CssEditor";
+import { ColorInput, FONT_FAMILIES, Row, Segmented, Select, TextInput } from "./inputs";
 
 type Control =
   | { prop: string; label: string; kind: "text"; placeholder?: string }
@@ -66,7 +67,15 @@ const SECTIONS: { title: string; controls: Control[] }[] = [
 ];
 
 /** Per-element CSS. Every change produces a new StyleMap; empty values remove the property. */
-export function StyleEditor({ style, onChange }: { style: StyleMap; onChange: (s: StyleMap) => void }) {
+export function StyleEditor({
+  elementId,
+  style,
+  onChange,
+}: {
+  elementId: string;
+  style: StyleMap;
+  onChange: (s: StyleMap) => void;
+}) {
   const set = (prop: string, value: string) => {
     const next = { ...style };
     if (value.trim()) next[prop] = value;
@@ -102,13 +111,16 @@ export function StyleEditor({ style, onChange }: { style: StyleMap; onChange: (s
         <summary>CSS</summary>
         <p className="muted">
           Every style on this element as CSS. Add any property here, e.g. <code>box-shadow</code> or{" "}
-          <code>column-count</code>. Applied when you leave the box.
+          <code>column-count</code>. Applies as you type.
         </p>
-        <DraftTextarea
+        <CssEditor
+          kind="declarations"
+          path={`inmemory://paged/elements/${elementId}.css`}
           value={styleToText(style)}
-          onCommit={(text) => onChange(textToStyle(text))}
-          rows={7}
-          placeholder={"font-size: 12pt;\ncolor: #333;"}
+          onChange={(text) => {
+            const next = textToStyle(text);
+            if (JSON.stringify(next) !== JSON.stringify(style)) onChange(next);
+          }}
         />
         {Object.keys(style).length > 0 && (
           <button type="button" className="btn" onClick={() => onChange({})}>
