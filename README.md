@@ -164,6 +164,17 @@ should save a still in state and render that in print mode. The sample
 mode, camera and a JPEG still saved on release, the still shown in Preview
 and print.
 
+### Sample components
+
+- **Callout**: a multi-file component (module, CSS, SVG asset).
+- **Chart**: [chart.js](https://www.chartjs.org) bar, line, area, pie and
+  doughnut charts from comma/tab-separated data in the sidebar. Chart.js draws
+  on a canvas, which static print markup can't carry, so the chart is drawn
+  synchronously to an off-screen canvas at 3× resolution and shown as an
+  image: the same box in Edit, Preview and print, cached per settings.
+- **QR code**: `react-qr-code` from esm.sh.
+- **3D scene**: three.js, orbit in Edit mode; print uses the saved still.
+
 ## The .pdoc format
 
 **Save .pdoc** writes a zip, like .docx:
