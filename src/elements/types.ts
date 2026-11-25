@@ -66,7 +66,9 @@ export type FieldDef<P> =
   | (FieldBase<P> & { kind: "text" | "textarea" | "color" | "image" | "lines" | "table" | "runs"; placeholder?: string })
   | (FieldBase<P> & { kind: "number"; min?: number; max?: number; step?: number })
   | (FieldBase<P> & { kind: "select"; options: { value: string; label: string }[] })
-  | (FieldBase<P> & { kind: "boolean" });
+  | (FieldBase<P> & { kind: "boolean" })
+  /** A page break's section: on/off, plus page settings overrides. */
+  | (FieldBase<P> & { kind: "section" });
 
 export type ElementGroup = "Text" | "Data" | "Media" | "Layout" | "Page" | "Custom";
 

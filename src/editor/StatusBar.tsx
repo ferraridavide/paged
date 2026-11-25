@@ -2,6 +2,7 @@ import { Minus, Plus, Puzzle } from "lucide-react";
 import { getCompileStatus, getDefinition, useRegistryVersion } from "../elements/registry";
 import { useEditor, useSelectedNode } from "../model/store";
 import { customType } from "../model/types";
+import { sectionsOf } from "../layout/sections";
 import { useMenu } from "../ui/Menu";
 import { useUi, ZOOM_STEPS } from "./ui";
 
@@ -12,12 +13,16 @@ export function StatusBar() {
   const menu = useMenu();
   useRegistryVersion();
   const node = useSelectedNode();
+  const sectionCount = sectionsOf(state.doc).length;
   const failing = state.doc.components.filter((c) => getCompileStatus(customType(c.id))?.state === "error");
   const zoom = Math.round(ui.settings.zoom * 100);
 
   return (
     <footer className="status-bar">
-      <span>{ui.layout ? `${ui.layout.pages} page${ui.layout.pages === 1 ? "" : "s"}` : "Laying out…"}</span>
+      <span>
+        {ui.layout ? `${ui.layout.pages} page${ui.layout.pages === 1 ? "" : "s"}` : "Laying out…"}
+        {sectionCount > 1 && <span className="status-dim"> · {sectionCount} sections</span>}
+      </span>
       {ui.layout && <span className="status-dim" title="Time spent paginating after the last change">Layout {ui.layout.ms.toFixed(1)} ms</span>}
       <span className="status-dim">{node ? `${getDefinition(node.type)?.label ?? node.type} selected` : "No selection"}</span>
       {state.doc.components.length > 0 && (

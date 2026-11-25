@@ -617,3 +617,18 @@ body.is-resizing iframe, body.is-resizing .canvas { pointer-events: none; }
 .class-suggestion-name { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .class-suggestion-meta { color: var(--faint); font-size: 11px; white-space: nowrap; }
 .class-error { margin: 4px 0 0; font-size: 11px; color: var(--danger); line-height: 1.35; }
+
+/* ---------- Sections (page settings for runs of pages) ---------- */
+
+.section-field { margin: 2px 0 8px; }
+.section-toggle { margin-left: 0 !important; padding: 8px 10px; border-radius: var(--radius); background: var(--panel-2); border: 1px solid var(--line); }
+.section-summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0 4px;
+  font-size: 12px; color: var(--muted);
+}
+.section-summary strong { color: var(--text-2); font-weight: 600; }
+.section-note { margin-top: 10px !important; font-size: 12px; }
+.style-row.is-set > .row-label, .row-inline.style-row.is-set .row-label { color: var(--accent); font-weight: 600; }
+.margin-grid.style-row.is-set .row-label { color: var(--accent); font-weight: 600; }
+.pd-edit .hd-page-break.is-section { border-top: 2px solid var(--accent); }
+.pd-edit .hd-page-break.is-section .ed-badge { color: var(--accent); border-color: var(--accent-line); }

@@ -13,7 +13,9 @@ import {
   Pilcrow,
   Plus,
   Puzzle,
+  Merge,
   Scissors,
+  SeparatorHorizontal,
   Settings,
   SlidersHorizontal,
   SquareDashed,
@@ -23,6 +25,7 @@ import {
 import { getDefinition } from "../elements/registry";
 import { newId } from "../model/ids";
 import { useEditor } from "../model/store";
+import type { Section } from "../layout/sections";
 import type { ElementNode } from "../model/types";
 import { tidy, type MenuItem } from "../ui/Menu";
 import { useInsertItems } from "./commands";
@@ -111,12 +114,59 @@ export function useElementMenu() {
 }
 
 /** Right-click menu for the empty parts of a page. */
+/** Which page was right-clicked, for the section actions. */
+export interface PageTarget {
+  number: number;
+  section: Section;
+  /** True when this page is the first page of its section. */
+  startsSection: boolean;
+  /** Index (in doc.elements) of the first element on the page, if any. */
+  firstElementIndex: number | null;
+}
+
 export function usePageMenu() {
   const { state, dispatch } = useEditor();
   const ui = useUi();
   const insertItems = useInsertItems();
 
-  return (): MenuItem[] => [
+  const openSettings = (section: Section) => {
+    ui.set({ inspector: true });
+    dispatch({ type: "select", id: section.breakId });
+  };
+
+  const sectionItems = (t: PageTarget): MenuItem[] =>
+    tidy([
+      {
+        type: "header",
+        label: `Page ${t.number} · ${t.section.breakId ? `section ${t.section.index + 1}` : "document page settings"}`,
+      },
+      { label: t.section.breakId ? "Section settings…" : "Page settings…", icon: Settings, onSelect: () => openSettings(t.section) },
+      !t.startsSection &&
+        t.firstElementIndex !== null && {
+          label: "Start a new section here",
+          icon: SeparatorHorizontal,
+          onSelect: () => {
+            // A section break right before this page's first element: the new
+            // section starts with this page, with nothing changed yet.
+            dispatch({
+              type: "insertNode",
+              node: { id: newId(), type: "page-break", props: { section: {} }, style: {} },
+              index: t.firstElementIndex!,
+            });
+            ui.set({ inspector: true });
+          },
+        },
+      t.startsSection &&
+        t.section.breakId !== null && {
+          label: "Merge into the previous section",
+          icon: Merge,
+          onSelect: () => dispatch({ type: "updateProps", id: t.section.breakId!, patch: { section: null } }),
+        },
+      { type: "separator" },
+    ]);
+
+  return (target?: PageTarget): MenuItem[] => [
+    ...(target ? sectionItems(target) : []),
     { label: "Insert at end", icon: Plus, submenu: insertItems(undefined) },
     {
       label: "Paste at end",
@@ -127,15 +177,7 @@ export function usePageMenu() {
         dispatch({ type: "insertNode", node: { ...structuredClone(ui.clipboard.node), id: newId() }, index: state.doc.elements.length }),
     },
     { type: "separator" },
-    {
-      label: "Page setup…",
-      icon: Settings,
-      onSelect: () => {
-        dispatch({ type: "select", id: null });
-        ui.set({ inspector: true });
-      },
-    },
-    { type: "separator" },
+
     { label: "Margin & padding overlay", icon: SquareDashed, checked: ui.settings.boxModel, onSelect: () => ui.toggle("boxModel") },
     { label: "Outline elements on hover", icon: SquareDashedMousePointer, checked: ui.settings.hoverOutlines, onSelect: () => ui.toggle("hoverOutlines") },
     { type: "separator" },

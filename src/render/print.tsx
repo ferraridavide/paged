@@ -2,7 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import documentCss from "../styles/document.css?raw";
 import { componentsCss } from "../elements/registry";
 import type { PageLayout } from "../layout/paginate";
-import { baseTypography, declarations, elementsCss, pageDimensions, scopedCustomCss } from "../model/css";
+import { sectionBox, sectionsCss, sectionsOf } from "../layout/sections";
+import { baseTypography, declarations, elementsCss, scopedCustomCss } from "../model/css";
 import type { DocumentModel } from "../model/types";
 import { DocContext } from "./DocContext";
 import { Page } from "./PagedDocument";
@@ -14,6 +15,7 @@ const escapeHtml = (s: string) =>
 export function renderPagesHtml(doc: DocumentModel, layout: PageLayout[]) {
   const byId = new Map(doc.elements.map((n) => [n.id, n]));
   const indexOf = new Map(doc.elements.map((n, i) => [n.id, i]));
+  const sections = sectionsOf(doc);
   return renderToStaticMarkup(
     <DocContext.Provider value={doc}>
       <div className="pd-pages">
@@ -21,6 +23,7 @@ export function renderPagesHtml(doc: DocumentModel, layout: PageLayout[]) {
           <Page
             key={i}
             page={page}
+            section={sections[page.section] ?? sections[0]}
             visible
             number={i + 1}
             total={layout.length}
@@ -39,12 +42,20 @@ export function renderPagesHtml(doc: DocumentModel, layout: PageLayout[]) {
 
 /**
  * Prints the pages exactly as laid out on screen: renders every page from the
- * current layout into a hidden iframe with the document CSS and one `@page`
- * rule matching the page box, so the browser does no pagination of its own.
+ * current layout into a hidden iframe with the document CSS. Each page size
+ * gets a named `@page` rule, so sections in another size or orientation
+ * print on paper of that size; the browser does no pagination of its own.
  */
 export function printPages(doc: DocumentModel, layout: PageLayout[]) {
-  const { width, height } = pageDimensions(doc.page);
-  const m = doc.page.margin;
+  const sections = sectionsOf(doc);
+  const first = sectionBox(sections[0]);
+  const sizes = new Map(sections.map((s) => {
+    const box = sectionBox(s);
+    return [box.sizeKey, box] as const;
+  }));
+  const pageRules = [...sizes.values()]
+    .map((b) => `@page size-${b.sizeKey} { size: ${b.width}mm ${b.height}mm; margin: 0; }\n.pd-page[data-page-size="${b.sizeKey}"] { page: size-${b.sizeKey}; }`)
+    .join("\n");
   const html = `<!doctype html>
 <html>
 <head>
@@ -53,13 +64,15 @@ export function printPages(doc: DocumentModel, layout: PageLayout[]) {
 <style>${documentCss}</style>
 <style>${componentsCss()}</style>
 <style>${scopedCustomCss(doc)}</style>
+<style>${sectionsCss(sections)}</style>
 <style>${elementsCss(doc)}</style>
 <style>
-@page { size: ${width}mm ${height}mm; margin: 0; }
+@page { size: ${first.width}mm ${first.height}mm; margin: 0; }
+${pageRules}
 html, body { margin: 0; padding: 0; background: white; }
 .pd-doc {
 ${declarations(baseTypography(doc.page))}
-  --pd-content-height: calc(${height}mm - ${m.top} - ${m.bottom});
+  --pd-content-height: ${first.contentHeight};
 }
 .pd-page { break-after: page; }
 .pd-page:last-child { break-after: auto; }

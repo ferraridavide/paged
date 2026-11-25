@@ -54,14 +54,14 @@ export function textToStyle(text: string): StyleMap {
  * `position: running()` when they come from a stylesheet.
  */
 export function elementsCss(doc: DocumentModel) {
-  const rules = doc.elements
+  // Each element's styles are scoped to the element itself. @scope ranks
+  // closer scope roots higher, so a style set on one element beats Document
+  // CSS (scoped to .pd-doc) and section CSS (scoped to its pages) at equal
+  // specificity.
+  return doc.elements
     .filter((n) => Object.keys(n.style).length > 0)
-    .map((n) => `[data-node-id="${n.id}"] {\n${declarations(n.style)}\n}`)
+    .map((n) => `@scope ([data-node-id="${n.id}"]) {\n:scope {\n${declarations(n.style)}\n}\n}`)
     .join("\n");
-  // Same @scope as the document CSS: scoped rules outrank unscoped ones of
-  // equal specificity, so without it any document-wide rule would beat a
-  // style set on one element. With both scoped, the later one (this) wins.
-  return rules ? `@scope (.pd-doc) {\n${rules}\n}` : "";
 }
 
 /** Typography shared by the edit sheet and the printed body. */

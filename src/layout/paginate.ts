@@ -14,6 +14,7 @@
 import { getDefinition } from "../elements/registry";
 import type { SplitKind } from "../elements/types";
 import type { DocumentModel, ElementNode } from "../model/types";
+import type { Section } from "./sections";
 
 export interface Fragment {
   nodeId: string;
@@ -24,6 +25,8 @@ export interface Fragment {
 }
 
 export interface PageLayout {
+  /** Index into sectionsOf(doc): the page settings this page uses. */
+  section: number;
   fragments: Fragment[];
   header?: string;
   footer?: string;
@@ -207,14 +210,49 @@ function splitBlock(
 
 /* ---------- The page-filling pass ---------- */
 
-export function paginate(doc: DocumentModel, flowEl: HTMLElement, pageHeight: number): PageLayout[] {
+/**
+ * Lays out the whole document: each section separately, in its own measure
+ * flow (its content width) and with its own page height. A section always
+ * starts on a new page.
+ */
+export function paginate(
+  doc: DocumentModel,
+  sections: Section[],
+  flows: ({ el: HTMLElement; pageHeight: number } | null)[],
+): PageLayout[] {
+  const pages: PageLayout[] = [];
+  sections.forEach((section, i) => {
+    const flow = flows[i];
+    if (!flow) return;
+    for (const page of paginateNodes(doc, section.nodes, flow.el, flow.pageHeight)) pages.push({ ...page, section: i });
+  });
+  if (!pages.length) pages.push({ section: 0, fragments: [] });
+  assignRegions(pages, doc);
+
+  // Header/footer visibility per section, and "different first page".
+  pages.forEach((page, i) => {
+    const settings = sections[page.section].settings;
+    const firstOfSection = i === 0 || pages[i - 1].section !== page.section;
+    const bare = firstOfSection && settings.firstPageDifferent;
+    if (bare || settings.header === false) delete page.header;
+    if (bare || settings.footer === false) delete page.footer;
+  });
+  return pages;
+}
+
+function paginateNodes(
+  doc: DocumentModel,
+  nodes: ElementNode[],
+  flowEl: HTMLElement,
+  pageHeight: number,
+): Omit<PageLayout, "section">[] {
   const origin = flowEl.getBoundingClientRect().top;
   const boxes = new Map<string, HTMLElement>();
   for (const child of flowEl.children) {
     if (child instanceof HTMLElement && child.dataset.nodeId) boxes.set(child.dataset.nodeId, child);
   }
 
-  const pages: PageLayout[] = [];
+  const pages: Omit<PageLayout, "section">[] = [];
   let current: Fragment[] = [];
   let start = 0;
   const newPage = (nextStart: number) => {
@@ -225,7 +263,7 @@ export function paginate(doc: DocumentModel, flowEl: HTMLElement, pageHeight: nu
   const topOf = (id: string) => (boxes.get(id)?.getBoundingClientRect().top ?? origin) - origin;
 
   let breakAfterPrevious = false;
-  for (const node of doc.elements) {
+  for (const node of nodes) {
     // Unknown types (e.g. a custom component still compiling) still take space.
     const def = getDefinition(node.type);
     const el = boxes.get(node.id);
@@ -274,7 +312,6 @@ export function paginate(doc: DocumentModel, flowEl: HTMLElement, pageHeight: nu
     }
   }
   pages.push({ fragments: current });
-  assignRegions(pages, doc);
   return pages;
 }
 
@@ -310,6 +347,7 @@ export function reconcile(prev: PageLayout[], next: PageLayout[]): PageLayout[] 
     const p = prev[i];
     if (
       p &&
+      p.section === page.section &&
       p.header === page.header &&
       p.footer === page.footer &&
       p.fragments.length === fragments.length &&

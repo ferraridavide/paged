@@ -56,6 +56,27 @@ DocumentModel (JSON, in memory + localStorage)
   for both modes. Only pages near the viewport render their content.
 - **`src/model/css.ts`**: per-element styles become `[data-node-id="…"]` rules.
 
+## Sections (page settings for some pages)
+
+Pages come out of pagination, so settings can't be tied to "page 3" (what's on
+it changes with every edit). Like Word, the document is split into
+**sections** instead: a page break can start a section (select it and turn on
+"Start a new section", or right-click a page → "Start a new section here").
+Every page up to the next section break uses the document's page settings
+with that section's changes:
+
+- size, orientation, margins (sections can mix portrait and landscape)
+- header and footer on/off, and no header/footer on the section's first page
+- page background, page classes (for Document CSS like `.cover .hd-heading`)
+- typography, and **Page CSS** that applies only inside those pages
+
+The document's own page settings (no element selected) are the defaults; its
+"No header or footer on the first page" makes a cover page.
+
+Each section is laid out separately (`src/layout/sections.ts`): its own hidden
+measure flow at its content width, and its own page height, so text reflows
+when a section changes size. Print gives each page size a named `@page` rule.
+
 ## Classes and CSS
 
 Every element can carry CSS classes: type them into **Classes** at the top of
@@ -66,9 +87,10 @@ per-element CSS lives in the element's **Style** tab. Both CSS boxes are
 Monaco editors with completions, and apply as you type.
 
 Cascade, lowest to highest: built-in element styles (`document.css`),
-component CSS, Document CSS, then the element's own styles. Document CSS and
-element styles are both wrapped in `@scope (.pd-doc)` so neither can restyle
-the editor, and so the element's own styles win at equal specificity.
+component CSS, Document CSS, section Page CSS, then the element's own styles.
+Each is wrapped in `@scope` with a closer root than the one before (the
+document, the section's pages, the element itself), so nothing restyles the
+editor and the more specific context wins at equal specificity.
 
 ## Formatted text (inline runs)
 

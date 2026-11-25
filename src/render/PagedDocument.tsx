@@ -9,7 +9,8 @@ import { useUi } from "../editor/ui";
 import { useContextMenu, useMenu } from "../ui/Menu";
 import { restoreCaret, caretRecord } from "../layout/caret";
 import { paginate, reconcile, type PageLayout } from "../layout/paginate";
-import { baseTypography, elementsCss, pageDimensions, scopedCustomCss, toReactStyle } from "../model/css";
+import { sectionAttrs, sectionBox, sectionsCss, sectionsOf, type Section } from "../layout/sections";
+import { elementsCss, scopedCustomCss } from "../model/css";
 import { useEditor } from "../model/store";
 import { propsRuns, runsText, type Run } from "../model/runs";
 import type { DocumentModel, ElementNode, Mode } from "../model/types";
@@ -37,11 +38,13 @@ interface Props {
 export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLayout }: Props) {
   const { state, dispatch } = useEditor();
   const { doc, selectedId } = state;
-  const flowRef = useRef<HTMLDivElement>(null);
-  const probeRef = useRef<HTMLDivElement>(null);
-  const [pages, setPages] = useState<PageLayout[]>([{ fragments: [] }]);
+  // One hidden measure flow per section (each has its own content width).
+  const flowRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const probeRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [pages, setPages] = useState<PageLayout[]>([{ section: 0, fragments: [] }]);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
 
+  const sections = useMemo(() => sectionsOf(doc), [doc]);
   const flowNodes = useMemo(() => doc.elements.filter((n) => !getDefinition(n.type)?.region), [doc.elements]);
   const byId = useMemo(() => new Map(doc.elements.map((n) => [n.id, n])), [doc.elements]);
   const indexOf = useMemo(() => new Map(doc.elements.map((n, i) => [n.id, i])), [doc.elements]);
@@ -51,35 +54,39 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
   // Custom components compiling changes what (and how) elements render.
   const registryVersion = useRegistryVersion();
 
-  const lastFlowHeight = useRef(0);
+  const flowHeights = () => flowRefs.current.slice(0, sections.length).map((el) => el?.getBoundingClientRect().height ?? 0);
+  const lastFlowHeights = useRef<number[]>([]);
   const relayout = useCallback(() => {
-    const flow = flowRef.current;
-    const probe = probeRef.current;
-    if (!flow || !probe) return;
+    const flows = sections.map((_, i) => {
+      const el = flowRefs.current[i];
+      const probe = probeRefs.current[i];
+      return el && probe ? { el, pageHeight: probe.getBoundingClientRect().height } : null;
+    });
+    if (!flows[0]) return;
     const t0 = performance.now();
-    const next = paginate(doc, flow, probe.getBoundingClientRect().height);
+    const next = paginate(doc, sections, flows);
     const ms = performance.now() - t0;
-    lastFlowHeight.current = flow.getBoundingClientRect().height;
+    lastFlowHeights.current = flowHeights();
     setPages((prev) => reconcile(prev, next));
     onLayout?.({ layout: next, pages: next.length, ms });
     // registryVersion is listed on purpose: re-run the layout when components recompile.
-  }, [doc, onLayout, registryVersion]);
+  }, [doc, sections, onLayout, registryVersion]);
 
   useLayoutEffect(relayout, [relayout]);
 
-  // Re-layout when the flow changes size on its own (images, web fonts loading).
+  // Re-layout when a flow changes size on its own (images, web fonts loading).
   const relayoutRef = useRef(relayout);
   relayoutRef.current = relayout;
   useEffect(() => {
-    const flow = flowRef.current;
-    if (!flow) return;
     const ro = new ResizeObserver(() => {
-      if (Math.abs(flow.getBoundingClientRect().height - lastFlowHeight.current) > 0.5) relayoutRef.current();
+      const now = flowHeights();
+      if (now.some((h, i) => Math.abs(h - (lastFlowHeights.current[i] ?? -1)) > 0.5)) relayoutRef.current();
     });
-    ro.observe(flow);
+    flowRefs.current.slice(0, sections.length).forEach((el) => el && ro.observe(el));
     document.fonts?.ready.then(() => relayoutRef.current());
     return () => ro.disconnect();
-  }, []);
+    // Re-observe when the number of sections changes.
+  }, [sections.length]);
 
   // Only pages near the viewport get their content rendered. Off-screen pages
   // are empty boxes of the right size, so an edit that pushes content onto the
@@ -209,7 +216,21 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
       dispatch({ type: "select", id: node.id });
       contextMenu(e, elementMenu(node));
     } else {
-      contextMenu(e, pageMenu());
+      const pageEl = (e.target as HTMLElement).closest<HTMLElement>(".pd-page");
+      const i = pageEl ? Number(pageEl.dataset.page) - 1 : -1;
+      const page = pages[i];
+      const first = page?.fragments[0];
+      contextMenu(
+        e,
+        pageMenu(
+          page && {
+            number: i + 1,
+            section: sections[page.section] ?? sections[0],
+            startsSection: i === 0 || pages[i - 1].section !== page.section,
+            firstElementIndex: first ? (indexOf.get(first.nodeId) ?? null) : null,
+          },
+        ),
+      );
     }
   };
 
@@ -279,35 +300,36 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
 
   // ---- Render ----
 
-  const { width, height } = pageDimensions(doc.page);
-  const m = doc.page.margin;
-  const contentHeight = `calc(${height}mm - ${m.top} - ${m.bottom})`;
   const { settings } = useUi();
   let docClass = `pd-doc pd-${mode}`;
   if (!settings.hoverOutlines) docClass += " no-hover-outlines";
   if (!settings.boxModel) docClass += " no-box-model";
 
   return (
-    <div
-      className={docClass}
-      style={{ ...toReactStyle(baseTypography(doc.page)), ["--pd-content-height" as string]: contentHeight }}
-    >
+    <div className={docClass} style={sectionAttrs(sections[0], "").style}>
       <style>{documentCss}</style>
       <style>{componentsCss()}</style>
-      {/* Document CSS first, so a style set on one element wins over a document-wide rule. */}
+      {/* Document CSS, then section CSS (closer scope), then element styles (closest). */}
       <style>{scopedCustomCss(doc)}</style>
+      <style>{sectionsCss(sections)}</style>
       <style>{elementsCss(doc)}</style>
       {mode === "print" && selectedId && (
         <style>{`.pd-print .pd-pages [data-node-id="${CSS.escape(selectedId)}"] { outline: 2px solid #4f46e5; outline-offset: 2px; }`}</style>
       )}
       <InsertTextAfterContext.Provider value={mode === "edit" ? insertTextAfter : null}>
         <DocContext.Provider value={doc}>
-          <div className="pd-measure" aria-hidden inert style={{ width: `calc(${width}mm - ${m.left} - ${m.right})` }}>
-            <div ref={probeRef} className="pd-probe" style={{ height: contentHeight }} />
-            <div ref={flowRef} className="pd-flow">
-              <MeasureFlow nodes={flowNodes} />
-            </div>
-          </div>
+          {sections.map((section, i) => {
+            const attrs = sectionAttrs(section, "pd-measure");
+            const box = sectionBox(section);
+            return (
+              <div key={i} {...attrs} aria-hidden inert style={{ ...attrs.style, width: box.contentWidth }}>
+                <div ref={(el) => void (probeRefs.current[i] = el)} className="pd-probe" style={{ height: box.contentHeight }} />
+                <div ref={(el) => void (flowRefs.current[i] = el)} className="pd-flow">
+                  <MeasureFlow nodes={section.nodes} />
+                </div>
+              </div>
+            );
+          })}
 
           <div
             ref={pagesRef}
@@ -323,6 +345,7 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
               <Page
                 key={i}
                 page={page}
+                section={sections[page.section] ?? sections[0]}
                 visible={visible.has(i)}
                 number={i + 1}
                 total={pages.length}
@@ -356,6 +379,8 @@ const MeasureFlow = memo(function MeasureFlow({ nodes }: { nodes: ElementNode[] 
 
 export interface PageProps {
   page: PageLayout;
+  /** The section whose page settings this page uses. */
+  section: Section;
   visible: boolean;
   number: number;
   total: number;
@@ -370,15 +395,22 @@ export interface PageProps {
   empty?: boolean;
 }
 
-export function Page({ page, visible, number, total, doc, byId, indexOf, mode, selectedId, dropIndex, onUpdate, empty }: PageProps) {
-  const { width, height } = pageDimensions(doc.page);
-  const m = doc.page.margin;
+export function Page({ page, section, visible, number, total, doc, byId, indexOf, mode, selectedId, dropIndex, onUpdate, empty }: PageProps) {
+  const box = sectionBox(section);
+  const { width, height, margin: m } = box;
+  const attrs = sectionAttrs(section, "pd-page");
   const info = useMemo(() => ({ number, total }), [number, total]);
   const header = page.header ? byId.get(page.header) : undefined;
   const footer = page.footer ? byId.get(page.footer) : undefined;
   const lastIndex = doc.elements.length;
-  const style = { width: `${width}mm`, height: `${height}mm` };
-  if (!visible) return <section className="pd-page" style={style} data-page={number} />;
+  const style: React.CSSProperties = {
+    ...attrs.style,
+    width: `${width}mm`,
+    height: `${height}mm`,
+    background: section.settings.background || undefined,
+  };
+  const pageAttrs = { ...attrs, style, "data-page": number, "data-page-size": box.sizeKey };
+  if (!visible) return <section {...pageAttrs} />;
 
   const region = (node: ElementNode | undefined, where: "top" | "bottom") => (
     <div
@@ -397,7 +429,7 @@ export function Page({ page, visible, number, total, doc, byId, indexOf, mode, s
   );
 
   return (
-    <section className="pd-page" style={style} data-page={number}>
+    <section {...pageAttrs}>
       {region(header, "top")}
       <div className="pd-content" style={{ top: m.top, left: m.left, right: m.right, bottom: m.bottom }}>
         {empty && <EmptyHint />}

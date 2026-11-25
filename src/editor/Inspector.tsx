@@ -4,13 +4,15 @@ import { elementIcon } from "./icons";
 import { INSPECTOR_WIDTH, useUi } from "./ui";
 import { getDefinition, useRegistryVersion } from "../elements/registry";
 import { useEditor, useSelectedNode } from "../model/store";
-import type { ElementNode, PageSettings } from "../model/types";
+import type { ElementNode } from "../model/types";
 import { FieldInput } from "./fields/FieldInput";
 import { StyleEditor } from "./fields/StyleEditor";
 import { ClassInput } from "./fields/ClassInput";
 import { CssEditor } from "./fields/CssEditor";
+import { PageSettingsForm } from "./PageSettingsForm";
+import { resolvePage } from "../layout/sections";
 import { knownClasses } from "../model/css";
-import { ColorInput, FONT_FAMILIES, Row, Segmented, Select, TextInput } from "./fields/inputs";
+import { Row, TextInput } from "./fields/inputs";
 
 /** Right sidebar: the selected element's parameters and styles, or page settings. */
 export function Inspector() {
@@ -151,10 +153,6 @@ function ElementPanel({ node }: { node: ElementNode }) {
 function PagePanel() {
   const { state, dispatch } = useEditor();
   const { doc } = state;
-  const page = doc.page;
-  const setPage = (patch: Partial<PageSettings>) => dispatch({ type: "updatePage", patch });
-  const setMargin = (side: keyof PageSettings["margin"], v: string) =>
-    setPage({ margin: { ...page.margin, [side]: v } });
 
   return (
     <>
@@ -164,64 +162,24 @@ function PagePanel() {
         </span>
         <div className="panel-title">
           <strong>Document</strong>
-          <span className="muted">Select an element to edit it</span>
+          <span className="muted">Default page settings · select an element to edit it</span>
         </div>
       </header>
       <div className="panel-body">
-        <details className="section" open>
-          <summary>Page</summary>
-          <Row label="Title" help="Used by the {title} token in headers and footers.">
-            <TextInput value={doc.title} onChange={(title) => dispatch({ type: "updateDoc", patch: { title } })} />
-          </Row>
-          <Row label="Size">
-            <Select
-              value={page.size}
-              onChange={(size) => setPage({ size: size as PageSettings["size"] })}
-              options={["A4", "A5", "Letter", "Legal"].map((v) => ({ value: v, label: v }))}
-            />
-          </Row>
-          <Row label="Orientation">
-            <Segmented
-              value={page.orientation}
-              onChange={(o) => setPage({ orientation: o as PageSettings["orientation"] })}
-              options={[
-                { value: "portrait", label: "Portrait" },
-                { value: "landscape", label: "Landscape" },
-              ]}
-            />
-          </Row>
-          <div className="margin-grid">
-            {(["top", "right", "bottom", "left"] as const).map((side) => (
-              <Row key={side} label={`Margin ${side}`}>
-                <TextInput value={page.margin[side]} onChange={(v) => setMargin(side, v)} />
-              </Row>
-            ))}
-          </div>
-        </details>
-
-        <details className="section" open>
-          <summary>Base typography</summary>
-          <Row label="Font">
-            <Select
-              value={page.fontFamily}
-              onChange={(fontFamily) => setPage({ fontFamily })}
-              options={
-                FONT_FAMILIES.some((f) => f.value === page.fontFamily)
-                  ? FONT_FAMILIES
-                  : [{ value: page.fontFamily, label: "Custom" }, ...FONT_FAMILIES]
-              }
-            />
-          </Row>
-          <Row label="Size">
-            <TextInput value={page.fontSize} onChange={(fontSize) => setPage({ fontSize })} />
-          </Row>
-          <Row label="Line height">
-            <TextInput value={page.lineHeight} onChange={(lineHeight) => setPage({ lineHeight })} />
-          </Row>
-          <Row label="Color">
-            <ColorInput value={page.color} onChange={(color) => setPage({ color })} />
-          </Row>
-        </details>
+        <PageSettingsForm
+          value={resolvePage(doc.page)}
+          onChange={(patch) => dispatch({ type: "updatePage", patch })}
+          cssPath="inmemory://paged/sections/default.css"
+          intro={
+            <Row label="Title" help="Used by the {title} token in headers and footers.">
+              <TextInput value={doc.title} onChange={(title) => dispatch({ type: "updateDoc", patch: { title } })} />
+            </Row>
+          }
+        />
+        <p className="muted section-note">
+          Sections can change any of these for some pages: select a page break and turn on “Start a new section”, or
+          right-click a page.
+        </p>
 
         <details className="section" open>
           <summary>Document CSS</summary>

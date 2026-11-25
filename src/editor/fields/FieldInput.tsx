@@ -1,5 +1,7 @@
 import { useRef } from "react";
 import type { FieldDef } from "../../elements/types";
+import type { PageOverrides } from "../../model/types";
+import { SectionField } from "./SectionField";
 import { applyPlainEdit, runsText, type Run } from "../../model/runs";
 import { ColorInput, Row, Select, TextInput } from "./inputs";
 
@@ -75,6 +77,8 @@ export function FieldInput({
           />
         </Row>
       );
+    case "section":
+      return <SectionField value={(value as PageOverrides | null | undefined) ?? null} onChange={onChange} />;
     case "boolean":
       return (
         <label className="row row-inline">

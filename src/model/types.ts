@@ -36,7 +36,25 @@ export interface PageSettings {
   fontSize: string;
   lineHeight: string;
   color: string;
+  /** Show the header / footer on these pages (default: yes). */
+  header?: boolean;
+  footer?: boolean;
+  /** No header or footer on the first page of the section (cover pages). */
+  firstPageDifferent?: boolean;
+  /** Page background colour. */
+  background?: string;
+  /** Classes on these pages, for Document CSS like `.cover .hd-heading`. */
+  classes?: string[];
+  /** CSS that applies only inside these pages. */
+  css?: string;
 }
+
+/**
+ * A section's changes to the document's page settings. Stored on a page break
+ * (`props.section`), which then starts a section: every page up to the next
+ * section break uses the document defaults plus these overrides.
+ */
+export type PageOverrides = Partial<PageSettings>;
 
 /** A file inside a custom component: source text, or a binary asset as a data URL. */
 export type ComponentFile =
