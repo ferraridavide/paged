@@ -28,8 +28,12 @@ export interface PageLayout {
   /** Index into sectionsOf(doc): the page settings this page uses. */
   section: number;
   fragments: Fragment[];
-  header?: string;
-  footer?: string;
+  /**
+   * Whether this page shows its section's header / footer zone (hidden by the
+   * section's settings, or on a "different first page").
+   */
+  header: boolean;
+  footer: boolean;
 }
 
 interface Split {
@@ -224,19 +228,18 @@ export function paginate(
   sections.forEach((section, i) => {
     const flow = flows[i];
     if (!flow) return;
-    for (const page of paginateNodes(doc, section.nodes, flow.el, flow.pageHeight)) pages.push({ ...page, section: i });
+    paginateNodes(doc, section.nodes, flow.el, flow.pageHeight).forEach((fragments, n) => {
+      // Header/footer visibility per section, and "different first page".
+      const bare = n === 0 && !!section.settings.firstPageDifferent;
+      pages.push({
+        section: i,
+        fragments,
+        header: !bare && section.settings.header !== false,
+        footer: !bare && section.settings.footer !== false,
+      });
+    });
   });
-  if (!pages.length) pages.push({ section: 0, fragments: [] });
-  assignRegions(pages, doc);
-
-  // Header/footer visibility per section, and "different first page".
-  pages.forEach((page, i) => {
-    const settings = sections[page.section].settings;
-    const firstOfSection = i === 0 || pages[i - 1].section !== page.section;
-    const bare = firstOfSection && settings.firstPageDifferent;
-    if (bare || settings.header === false) delete page.header;
-    if (bare || settings.footer === false) delete page.footer;
-  });
+  if (!pages.length) pages.push(emptyPage(sections[0]));
   return pages;
 }
 
@@ -245,18 +248,18 @@ function paginateNodes(
   nodes: ElementNode[],
   flowEl: HTMLElement,
   pageHeight: number,
-): Omit<PageLayout, "section">[] {
+): Fragment[][] {
   const origin = flowEl.getBoundingClientRect().top;
   const boxes = new Map<string, HTMLElement>();
   for (const child of flowEl.children) {
     if (child instanceof HTMLElement && child.dataset.nodeId) boxes.set(child.dataset.nodeId, child);
   }
 
-  const pages: Omit<PageLayout, "section">[] = [];
+  const pages: Fragment[][] = [];
   let current: Fragment[] = [];
   let start = 0;
   const newPage = (nextStart: number) => {
-    pages.push({ fragments: current });
+    pages.push(current);
     current = [];
     start = nextStart;
   };
@@ -267,7 +270,7 @@ function paginateNodes(
     // Unknown types (e.g. a custom component still compiling) still take space.
     const def = getDefinition(node.type);
     const el = boxes.get(node.id);
-    if (def?.region || !el) continue;
+    if (!el) continue;
 
     const rect = el.getBoundingClientRect();
     const top = rect.top - origin;
@@ -311,29 +314,15 @@ function paginateNodes(
       current.push(...carry);
     }
   }
-  pages.push({ fragments: current });
+  pages.push(current);
   return pages;
 }
 
-/**
- * Header/footer for each page: the one placed on that page, else the last one
- * before it, else the first one in the document.
- */
-function assignRegions(pages: PageLayout[], doc: DocumentModel) {
-  const index = new Map(doc.elements.map((n, i) => [n.id, i]));
-  for (const kind of ["header", "footer"] as const) {
-    const regions = doc.elements
-      .map((n, i) => ({ id: n.id, i, region: getDefinition(n.type)?.region }))
-      .filter((r) => r.region === kind);
-    if (!regions.length) continue;
-    for (const page of pages) {
-      const first = page.fragments.length ? index.get(page.fragments[0].nodeId)! : Infinity;
-      const last = page.fragments.length ? index.get(page.fragments[page.fragments.length - 1].nodeId)! : Infinity;
-      const onPage = regions.find((r) => r.i >= first && r.i <= last);
-      const before = regions.filter((r) => r.i < first).pop();
-      page[kind] = (onPage ?? before ?? regions[0]).id;
-    }
-  }
+/** The single page of a document with nothing laid out yet. */
+export function emptyPage(section?: Section): PageLayout {
+  const settings = section?.settings;
+  const bare = !!settings?.firstPageDifferent;
+  return { section: 0, fragments: [], header: !bare && settings?.header !== false, footer: !bare && settings?.footer !== false };
 }
 
 /** Reuses unchanged fragment and page objects so memoised components skip re-rendering. */

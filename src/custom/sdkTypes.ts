@@ -65,6 +65,14 @@ declare module "@paged/sdk" {
     node: { id: string; type: string; props: Record<string, any> };
     mode: "edit" | "print";
     update(patch: Record<string, unknown>): void;
+    page?: { number: number; total: number };
   };
+
+  /**
+   * The page this copy of the element is on. Header/footer elements are drawn
+   * once per page. Undefined while the paginator measures the element, so
+   * keep the element's size the same either way.
+   */
+  export function usePageInfo(): { number: number; total: number } | undefined;
 }
 `;

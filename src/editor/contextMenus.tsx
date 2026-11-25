@@ -8,6 +8,7 @@ import {
   CopyPlus,
   Eraser,
   Eye,
+  Link,
   Paintbrush,
   Pencil,
   Pilcrow,
@@ -21,12 +22,13 @@ import {
   SquareDashed,
   SquareDashedMousePointer,
   Trash,
+  Unlink,
 } from "lucide-react";
 import { getDefinition } from "../elements/registry";
 import { newId } from "../model/ids";
-import { useEditor } from "../model/store";
-import type { Section } from "../layout/sections";
-import type { ElementNode } from "../model/types";
+import { stepTarget, useEditor } from "../model/store";
+import { zoneInsertIndex, type Section } from "../layout/sections";
+import type { ElementNode, Zone } from "../model/types";
 import { tidy, type MenuItem } from "../ui/Menu";
 import { useInsertItems } from "./commands";
 import { useUi } from "./ui";
@@ -40,23 +42,24 @@ export function useElementMenu() {
   return (node: ElementNode): MenuItem[] => {
     const index = state.doc.elements.findIndex((n) => n.id === node.id);
     const def = getDefinition(node.type);
-    const isRegion = !!def?.region;
+    const zone = node.zone;
     const componentId = node.type.startsWith("custom:") ? node.type.slice("custom:".length) : null;
     const hasStyle = Object.keys(node.style).length > 0;
     const pasteAt = (at: number) =>
-      ui.clipboard.node && dispatch({ type: "insertNode", node: { ...structuredClone(ui.clipboard.node), id: newId() }, index: at });
+      ui.clipboard.node &&
+      dispatch({ type: "insertNode", node: { ...structuredClone(ui.clipboard.node), id: newId() }, index: at, zone });
 
     return tidy([
-      { type: "header", label: def?.label ?? node.type },
-      !isRegion && { label: "Insert above", icon: ArrowUpToLine, submenu: insertItems(index) },
-      !isRegion && { label: "Insert below", icon: ArrowDownToLine, submenu: insertItems(index + 1) },
-      !isRegion && {
+      { type: "header", label: `${def?.label ?? node.type}${zone ? ` · in the ${zone}` : ""}` },
+      { label: "Insert above", icon: ArrowUpToLine, submenu: insertItems(index, zone) },
+      { label: "Insert below", icon: ArrowDownToLine, submenu: insertItems(index + 1, zone) },
+      {
         label: "Text below",
         icon: Pilcrow,
         shortcut: "mod+enter",
         onSelect: () => {
           ui.set({ mode: "edit" });
-          dispatch({ type: "placeEphemeral", index: index + 1 });
+          dispatch({ type: "placeEphemeral", index: index + 1, zone });
         },
       },
       { type: "separator" },
@@ -73,19 +76,19 @@ export function useElementMenu() {
       { label: "Paste below", icon: ClipboardPaste, shortcut: "mod+v", disabled: !ui.clipboard.node, onSelect: () => pasteAt(index + 1) },
       { label: "Duplicate", icon: CopyPlus, shortcut: "mod+d", onSelect: () => dispatch({ type: "duplicate", id: node.id }) },
       { type: "separator" },
-      !isRegion && {
+      {
         label: "Move up",
         icon: ArrowUp,
         shortcut: "alt+arrowup",
-        disabled: index <= 0,
-        onSelect: () => dispatch({ type: "move", id: node.id, to: index - 1 }),
+        disabled: stepTarget(state.doc, node.id, -1) === null,
+        onSelect: () => dispatch({ type: "step", id: node.id, by: -1 }),
       },
-      !isRegion && {
+      {
         label: "Move down",
         icon: ArrowDown,
         shortcut: "alt+arrowdown",
-        disabled: index >= state.doc.elements.length - 1,
-        onSelect: () => dispatch({ type: "move", id: node.id, to: index + 2 }),
+        disabled: stepTarget(state.doc, node.id, 1) === null,
+        onSelect: () => dispatch({ type: "step", id: node.id, by: 1 }),
       },
       { type: "separator" },
       { label: "Copy style", icon: Paintbrush, shortcut: "mod+alt+c", disabled: !hasStyle, onSelect: () => ui.setClipboard({ style: { ...node.style } }) },
@@ -113,11 +116,13 @@ export function useElementMenu() {
   };
 }
 
-/** Right-click menu for the empty parts of a page. */
 /** Which page was right-clicked, for the section actions. */
 export interface PageTarget {
   number: number;
   section: Section;
+  sections: Section[];
+  /** Set when the click was in the page's header or footer zone. */
+  zone?: Zone;
   /** True when this page is the first page of its section. */
   startsSection: boolean;
   /** Index (in doc.elements) of the first element on the page, if any. */
@@ -165,7 +170,51 @@ export function usePageMenu() {
       { type: "separator" },
     ]);
 
+  const zoneItems = (t: PageTarget, zone: Zone): MenuItem[] => {
+    const name = zone === "header" ? "header" : "footer";
+    const { nodes, from } = t.section.zones[zone];
+    const linked = from !== t.section.index;
+    const source = t.sections[from];
+    // A linked zone is the earlier section's: adding to it changes every section that shows it.
+    const at = zoneInsertIndex(state.doc, source, zone);
+    return tidy([
+      {
+        type: "header",
+        label: `${zone === "header" ? "Header" : "Footer"}${linked ? ` · same as section ${from + 1}` : ""}`,
+      },
+      { label: `Insert into the ${name}`, icon: Plus, submenu: insertItems(at, zone) },
+      {
+        label: `Paste into the ${name}`,
+        icon: ClipboardPaste,
+        disabled: !ui.clipboard.node,
+        onSelect: () =>
+          ui.clipboard.node &&
+          dispatch({ type: "insertNode", node: { ...structuredClone(ui.clipboard.node), id: newId() }, index: at, zone }),
+      },
+      linked &&
+        nodes.length > 0 && {
+          label: `Give section ${t.section.index + 1} its own ${name}`,
+          icon: Unlink,
+          onSelect: () =>
+            dispatch({
+              type: "insertNodes",
+              nodes: nodes.map((n) => ({ ...structuredClone(n), id: newId() })),
+              index: zoneInsertIndex(state.doc, t.section, zone),
+            }),
+        },
+      !linked &&
+        nodes.length > 0 &&
+        t.sections.slice(0, t.section.index).some((s) => s.own[zone].length > 0) && {
+          label: `Same ${name} as the previous section`,
+          icon: Link,
+          onSelect: () => dispatch({ type: "removeMany", ids: nodes.map((n) => n.id) }),
+        },
+      { type: "separator" },
+    ]);
+  };
+
   return (target?: PageTarget): MenuItem[] => [
+    ...(target?.zone ? zoneItems(target, target.zone) : []),
     ...(target ? sectionItems(target) : []),
     { label: "Insert at end", icon: Plus, submenu: insertItems(undefined) },
     {

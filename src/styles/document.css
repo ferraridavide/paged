@@ -140,7 +140,7 @@
 .hd-page-break { height: 0; position: relative; }
 
 /* Header / footer, drawn in the page margins. */
-.hd-region {
+.hd-running {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   gap: 8px;
@@ -154,3 +154,10 @@
 .hd-run-left { text-align: left; }
 .hd-run-center { text-align: center; }
 .hd-run-right { text-align: right; }
+
+/* ---------- Header and footer zones ---------- */
+
+/* Elements in a page margin: no outer margins against the page edge or the body. */
+.pd-zone > [data-node-id],
+.pd-zone > .ed-block > [data-node-id] { margin-block: 0; }
+.pd-zone > * + * { margin-top: 2mm; }

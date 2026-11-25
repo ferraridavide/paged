@@ -6,9 +6,10 @@
  * document's page settings for every page until the next section break.
  */
 import type { CSSProperties } from "react";
-import { getDefinition } from "../elements/registry";
 import { baseTypography, pageDimensions, toReactStyle } from "../model/css";
-import type { DocumentModel, ElementNode, PageOverrides, PageSettings } from "../model/types";
+import type { DocumentModel, ElementNode, PageOverrides, PageSettings, Zone } from "../model/types";
+
+export const ZONES: Zone[] = ["header", "footer"];
 
 export interface Section {
   index: number;
@@ -19,6 +20,16 @@ export interface Section {
   nodes: ElementNode[];
   /** The page break that starts this section; null for the first section. */
   breakId: string | null;
+  /** Where this section starts in doc.elements (right after its section break). */
+  start: number;
+  /** The header and footer elements this section has itself. */
+  own: Record<Zone, ElementNode[]>;
+  /**
+   * What its pages show in each zone: its own elements, or, when it has none,
+   * those of the closest section before it that has some (like Word's "link
+   * to previous"). `from` is the index of the section they belong to.
+   */
+  zones: Record<Zone, { nodes: ElementNode[]; from: number }>;
 }
 
 /** The section overrides a node carries, if it's a page break that starts a section. */
@@ -43,26 +54,57 @@ export function resolvePage(base: PageSettings, overrides: PageOverrides = {}): 
 }
 
 export function sectionsOf(doc: DocumentModel): Section[] {
-  const sections: Section[] = [
-    { index: 0, settings: resolvePage(doc.page), overrides: {}, nodes: [], breakId: null },
-  ];
-  for (const node of doc.elements) {
-    if (getDefinition(node.type)?.region) continue;
-    sections[sections.length - 1].nodes.push(node);
+  const make = (index: number, settings: PageSettings, overrides: PageOverrides, breakId: string | null, start: number): Section => ({
+    index,
+    settings,
+    overrides,
+    nodes: [],
+    breakId,
+    start,
+    own: { header: [], footer: [] },
+    zones: { header: { nodes: [], from: index }, footer: { nodes: [], from: index } },
+  });
+  const sections: Section[] = [make(0, resolvePage(doc.page), {}, null, 0)];
+  doc.elements.forEach((node, i) => {
+    const current = sections[sections.length - 1];
+    if (node.zone) {
+      current.own[node.zone].push(node);
+      return;
+    }
+    current.nodes.push(node);
     const overrides = sectionOverrides(node);
     if (overrides) {
-      sections.push({
-        index: sections.length,
-        // "No header/footer on the first page" means the document's first page;
-        // a section only gets it when it turns it on itself.
-        settings: resolvePage(doc.page, { firstPageDifferent: false, ...overrides }),
-        overrides,
-        nodes: [],
-        breakId: node.id,
-      });
+      // "No header/footer on the first page" means the document's first page;
+      // a section only gets it when it turns it on itself.
+      sections.push(make(sections.length, resolvePage(doc.page, { firstPageDifferent: false, ...overrides }), overrides, node.id, i + 1));
+    }
+  });
+  for (const zone of ZONES) {
+    let inherited = { nodes: [] as ElementNode[], from: 0 };
+    for (const s of sections) {
+      if (s.own[zone].length) inherited = { nodes: s.own[zone], from: s.index };
+      s.zones[zone] = inherited.nodes.length ? inherited : { nodes: [], from: s.index };
     }
   }
   return sections;
+}
+
+/** Where a new element for `section`'s own `zone` goes in doc.elements: after its last one, else at the section's start. */
+export function zoneInsertIndex(doc: DocumentModel, section: Section, zone: Zone) {
+  const last = section.own[zone].at(-1);
+  if (last) return doc.elements.findIndex((n) => n.id === last.id) + 1;
+  // Headers before footers, both before the section's first flow element.
+  if (zone === "footer" && section.own.header.length) {
+    return doc.elements.findIndex((n) => n.id === section.own.header.at(-1)!.id) + 1;
+  }
+  return section.start;
+}
+
+/** The section that contains doc.elements[index]. */
+export function sectionAt(sections: Section[], index: number) {
+  let found = sections[0];
+  for (const s of sections) if (s.start <= index) found = s;
+  return found;
 }
 
 /** A short description of what a section changes, for badges and labels. */

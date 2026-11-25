@@ -6,7 +6,7 @@ import { listElement } from "./List";
 import { tableElement } from "./Table";
 import { imageElement } from "./Image";
 import { dividerElement, pageBreakElement, spacerElement } from "./Layout";
-import { footerElement, headerElement } from "./RunningRegion";
+import { runningTextElement } from "./RunningText";
 
 /**
  * Built-in element types. To add one, write a component that implements
@@ -22,8 +22,7 @@ export const ELEMENTS: ElementDefinition[] = [
   dividerElement,
   spacerElement,
   pageBreakElement,
-  headerElement,
-  footerElement,
+  runningTextElement,
 ];
 
 const builtIn = new Map(ELEMENTS.map((d) => [d.type, d]));

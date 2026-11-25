@@ -44,7 +44,7 @@ import { newId } from "../model/ids";
 import { packDocument, readDocumentFile } from "../model/pdoc";
 import { sampleDocument } from "../model/sample";
 import { useEditor } from "../model/store";
-import { customType } from "../model/types";
+import { customType, type Zone } from "../model/types";
 import { printPages } from "../render/print";
 import { newComponent } from "../studio/files";
 import type { MenuItem } from "../ui/Menu";
@@ -102,10 +102,11 @@ export function useCommands() {
   const hasSelection = inDocument && node !== null;
   const after = index >= 0 ? index + 1 : undefined;
 
+  /** Pastes next to the selection, into the same zone (header, footer or body). */
   const paste = (at?: number) => {
     const copied = ui.clipboard.node;
     if (!copied) return;
-    dispatch({ type: "insertNode", node: { ...structuredClone(copied), id: newId() }, index: at });
+    dispatch({ type: "insertNode", node: { ...structuredClone(copied), id: newId() }, index: at, zone: node?.zone });
   };
 
   const commands = {
@@ -227,7 +228,7 @@ export function useCommands() {
       keys: ["alt+arrowup"],
       scope: "selection",
       enabled: hasSelection && index > 0,
-      run: () => node && dispatch({ type: "move", id: node.id, to: index - 1 }),
+      run: () => node && dispatch({ type: "step", id: node.id, by: -1 }),
     },
     moveDown: {
       label: "Move down",
@@ -235,7 +236,7 @@ export function useCommands() {
       keys: ["alt+arrowdown"],
       scope: "selection",
       enabled: hasSelection && index < doc.elements.length - 1,
-      run: () => node && dispatch({ type: "move", id: node.id, to: index + 2 }),
+      run: () => node && dispatch({ type: "step", id: node.id, by: 1 }),
     },
     copyStyle: {
       label: "Copy style",
@@ -288,8 +289,9 @@ export function useCommands() {
       enabled: inDocument,
       run: () => {
         ui.set({ mode: "edit" });
-        const lastFlow = doc.elements.reduce((last, n, i) => (getDefinition(n.type)?.region ? last : i), -1);
-        dispatch({ type: "placeEphemeral", index: index >= 0 ? index + 1 : lastFlow + 1 });
+        // Below the selection, in its zone; else at the end of the body.
+        const lastFlow = doc.elements.reduce((last, n, i) => (n.zone ? last : i), -1);
+        dispatch({ type: "placeEphemeral", index: index >= 0 ? index + 1 : lastFlow + 1, zone: node?.zone });
       },
     },
 
@@ -451,7 +453,8 @@ export function useInsertItems() {
   useRegistryVersion();
   const { doc } = state;
 
-  return (at: number | undefined): MenuItem[] => {
+  /** `zone`: insert into a header/footer zone instead of the body. */
+  return (at: number | undefined, zone?: Zone): MenuItem[] => {
     const items: MenuItem[] = [];
     for (const group of GROUPS) {
       const defs = ELEMENTS.filter((d) => d.group === group);
@@ -463,7 +466,7 @@ export function useInsertItems() {
           icon: elementIcon(d.type),
           onSelect: () => {
             ui.set({ mode: "edit" });
-            dispatch({ type: "insert", elementType: d.type, index: at });
+            dispatch({ type: "insert", elementType: d.type, index: at, zone });
           },
         });
       }
@@ -479,7 +482,7 @@ export function useInsertItems() {
         shortcut: undefined,
         onSelect: () => {
           ui.set({ mode: "edit" });
-          dispatch({ type: "insert", elementType: type, index: at });
+          dispatch({ type: "insert", elementType: type, index: at, zone });
         },
         ...(status?.state === "error" ? { label: `${c.name} (failed to compile)` } : {}),
       });

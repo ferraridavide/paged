@@ -96,7 +96,7 @@ function ElementPanel({ node }: { node: ElementNode }) {
         </span>
         <div className="panel-title">
           <strong>{def?.label ?? node.type}</strong>
-          <code>{node.id}</code>
+          <code>{node.zone ? `in the ${node.zone} · ` : ""}{node.id}</code>
         </div>
         <button className="icon-button" title="Deselect (Esc)" onClick={() => dispatch({ type: "select", id: null })}>
           <X size={15} />

@@ -8,12 +8,12 @@ import { useElementMenu, usePageMenu } from "../editor/contextMenus";
 import { useUi } from "../editor/ui";
 import { useContextMenu, useMenu } from "../ui/Menu";
 import { restoreCaret, caretRecord } from "../layout/caret";
-import { paginate, reconcile, type PageLayout } from "../layout/paginate";
-import { sectionAttrs, sectionBox, sectionsCss, sectionsOf, type Section } from "../layout/sections";
+import { emptyPage, paginate, reconcile, type PageLayout } from "../layout/paginate";
+import { sectionAttrs, sectionBox, sectionsCss, sectionsOf, zoneInsertIndex, type Section } from "../layout/sections";
 import { elementsCss, scopedCustomCss } from "../model/css";
 import { useEditor } from "../model/store";
 import { propsRuns, runsText, type Run } from "../model/runs";
-import type { DocumentModel, ElementNode, Mode } from "../model/types";
+import type { DocumentModel, ElementNode, Mode, Zone } from "../model/types";
 import { DocContext } from "./DocContext";
 import { ElementView, InsertTextAfterContext } from "./ElementView";
 
@@ -41,11 +41,11 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
   // One hidden measure flow per section (each has its own content width).
   const flowRefs = useRef<(HTMLDivElement | null)[]>([]);
   const probeRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [pages, setPages] = useState<PageLayout[]>([{ section: 0, fragments: [] }]);
+  const [pages, setPages] = useState<PageLayout[]>(() => [emptyPage()]);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   const sections = useMemo(() => sectionsOf(doc), [doc]);
-  const flowNodes = useMemo(() => doc.elements.filter((n) => !getDefinition(n.type)?.region), [doc.elements]);
+  const flowNodes = useMemo(() => doc.elements.filter((n) => !n.zone), [doc.elements]);
   const byId = useMemo(() => new Map(doc.elements.map((n) => [n.id, n])), [doc.elements]);
   const indexOf = useMemo(() => new Map(doc.elements.map((n, i) => [n.id, i])), [doc.elements]);
 
@@ -115,11 +115,19 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
   // Bring the selected element into view (e.g. when picked in the outline).
   useEffect(() => {
     if (!selectedId) return;
-    const el = pagesRef.current?.querySelector(`[data-node-id="${CSS.escape(selectedId)}"]`);
+    const all = [...(pagesRef.current?.querySelectorAll(`[data-node-id="${CSS.escape(selectedId)}"]`) ?? [])];
+    // Header/footer elements are on every page: leave the view alone if one
+    // of their copies is already on screen.
+    const viewport = pagesRef.current?.closest(".canvas")?.getBoundingClientRect();
+    const onScreen = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return !!viewport && r.bottom > viewport.top && r.top < viewport.bottom;
+    };
+    if (all.length > 1 && all.some(onScreen)) return;
     // Don't return scrollIntoView's result: newer browsers return a Promise,
     // and React would call it as the effect's cleanup and crash.
-    if (el) {
-      el.scrollIntoView({ block: "nearest" });
+    if (all[0]) {
+      all[0].scrollIntoView({ block: "nearest" });
       return;
     }
     const index = pages.findIndex((p) => p.fragments.some((f) => f.nodeId === selectedId));
@@ -169,7 +177,7 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
   // ---- Drag and drop onto pages (edit mode) ----
 
   const dropTarget = (clientY: number) => {
-    const blocks = pagesRef.current?.querySelectorAll<HTMLElement>(".ed-block[data-index]") ?? [];
+    const blocks = pagesRef.current?.querySelectorAll<HTMLElement>(".pd-content > .ed-block[data-index]") ?? [];
     for (const b of blocks) {
       const r = b.getBoundingClientRect();
       if (clientY < r.top + r.height / 2) return Number(b.dataset.index);
@@ -217,6 +225,7 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
       contextMenu(e, elementMenu(node));
     } else {
       const pageEl = (e.target as HTMLElement).closest<HTMLElement>(".pd-page");
+      const zone = (e.target as HTMLElement).closest<HTMLElement>(".pd-zone")?.dataset.zone as Zone | undefined;
       const i = pageEl ? Number(pageEl.dataset.page) - 1 : -1;
       const page = pages[i];
       const first = page?.fragments[0];
@@ -226,8 +235,10 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
           page && {
             number: i + 1,
             section: sections[page.section] ?? sections[0],
+            sections,
             startsSection: i === 0 || pages[i - 1].section !== page.section,
             firstElementIndex: first ? (indexOf.get(first.nodeId) ?? null) : null,
+            zone: mode === "edit" ? zone : undefined,
           },
         ),
       );
@@ -241,12 +252,16 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
   docRef.current = doc;
   const ephemeral = state.ephemeral;
 
-  /** Puts the caret in an existing empty paragraph next to `index` instead of adding another. */
-  const focusEmptyNear = (index: number) => {
+  /**
+   * Puts the caret in an existing empty paragraph next to `index` (in the same
+   * zone, or the body) instead of adding another. `within` limits it to the
+   * copy on one page, for header/footer elements that are on every page.
+   */
+  const focusEmptyNear = (index: number, zone?: Zone, within?: HTMLElement | null) => {
     for (const n of [docRef.current.elements[index - 1], docRef.current.elements[index]]) {
-      if (n?.type !== "text" || runsText(propsRuns(n.props)).trim()) continue;
+      if (n?.type !== "text" || n.zone !== zone || runsText(propsRuns(n.props)).trim()) continue;
       dispatch({ type: "select", id: n.id });
-      const el = pagesRef.current?.querySelector<HTMLElement>(`[data-caret-key="${CSS.escape(n.id)}/text"]`);
+      const el = (within ?? pagesRef.current)?.querySelector<HTMLElement>(`[data-caret-key="${CSS.escape(n.id)}/text"]`);
       el?.focus();
       return true;
     }
@@ -256,7 +271,9 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
   const insertTextAfter = useCallback(
     (id: string) => {
       const index = docRef.current.elements.findIndex((n) => n.id === id) + 1;
-      if (index > 0 && !focusEmptyNear(index)) dispatch({ type: "placeEphemeral", index });
+      const zone = docRef.current.elements[index - 1]?.zone;
+      const page = document.activeElement?.closest<HTMLElement>(".pd-page");
+      if (index > 0 && !focusEmptyNear(index, zone, page)) dispatch({ type: "placeEphemeral", index, zone });
     },
     // focusEmptyNear only reads refs, so dispatch is the only dependency.
     [dispatch],
@@ -265,21 +282,26 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
   const onPagesMouseDown = (e: React.MouseEvent) => {
     if (mode !== "edit" || e.button !== 0) return;
     const target = e.target as HTMLElement;
-    const content = target.closest<HTMLElement>(".pd-content");
+    // The page body, or its header/footer zone.
+    const content = target.closest<HTMLElement>(".pd-content, .pd-zone");
     if (!content || target.closest(".ed-block, button, a, input")) return;
+    const zone = content.dataset.zone as Zone | undefined;
     // Clicked between or after elements: insert before the first block below
     // the pointer on this page, or after the page's last block.
     e.preventDefault();
     e.stopPropagation();
     const blocks = [...content.querySelectorAll<HTMLElement>(":scope > .ed-block[data-index]")];
     const below = blocks.find((b) => b.getBoundingClientRect().top > e.clientY);
-    const lastFlow = docRef.current.elements.reduce((last, n, i) => (getDefinition(n.type)?.region ? last : i), -1);
-    const index = below
-      ? Number(below.dataset.index)
-      : blocks.length
-        ? Number(blocks[blocks.length - 1].dataset.index) + 1
-        : lastFlow + 1;
-    if (!focusEmptyNear(index)) dispatch({ type: "placeEphemeral", index });
+    const doc = docRef.current;
+    let index: number;
+    if (below) index = Number(below.dataset.index);
+    else if (blocks.length) index = Number(blocks[blocks.length - 1].dataset.index) + 1;
+    else if (zone) {
+      // An empty zone: the first element of this page's section's own zone.
+      const page = pages[Number(content.closest<HTMLElement>(".pd-page")?.dataset.page) - 1];
+      index = zoneInsertIndex(doc, sections[page?.section ?? 0], zone);
+    } else index = doc.elements.reduce((last, n, i) => (n.zone ? last : i), -1) + 1;
+    if (!focusEmptyNear(index, zone, content)) dispatch({ type: "placeEphemeral", index, zone });
   };
 
   // Leaving the ephemeral paragraph (not just the window) settles it.
@@ -400,8 +422,6 @@ export function Page({ page, section, visible, number, total, doc, byId, indexOf
   const { width, height, margin: m } = box;
   const attrs = sectionAttrs(section, "pd-page");
   const info = useMemo(() => ({ number, total }), [number, total]);
-  const header = page.header ? byId.get(page.header) : undefined;
-  const footer = page.footer ? byId.get(page.footer) : undefined;
   const lastIndex = doc.elements.length;
   const style: React.CSSProperties = {
     ...attrs.style,
@@ -412,31 +432,42 @@ export function Page({ page, section, visible, number, total, doc, byId, indexOf
   const pageAttrs = { ...attrs, style, "data-page": number, "data-page-size": box.sizeKey };
   if (!visible) return <section {...pageAttrs} />;
 
-  const region = (node: ElementNode | undefined, where: "top" | "bottom") => (
-    <div
-      className={`pd-margin pd-margin-${where}`}
-      style={{ height: where === "top" ? m.top : m.bottom, paddingLeft: m.left, paddingRight: m.right }}
-    >
-      {node &&
-        (mode === "edit" ? (
-          <EditBlock node={node} index={indexOf.get(node.id)!} count={lastIndex} selected={node.id === selectedId} region>
-            <ElementView node={node} mode={mode} page={info} selected={node.id === selectedId} onUpdate={onUpdate} />
-          </EditBlock>
-        ) : (
-          <ElementView node={node} mode={mode} page={info} />
-        ))}
-    </div>
-  );
+  /** A header or footer zone: its elements, in the page's top or bottom margin. */
+  const zone = (which: Zone) => {
+    if (!page[which]) return null;
+    const { nodes, from } = section.zones[which];
+    if (!nodes.length && mode !== "edit") return null;
+    const top = which === "header";
+    const linked = from !== section.index;
+    return (
+      <div
+        className={`pd-margin pd-margin-${top ? "top" : "bottom"} pd-zone${nodes.length ? "" : " is-empty"}`}
+        data-zone={which}
+        data-label={mode === "edit" ? `${top ? "Header" : "Footer"}${linked ? ` · same as section ${from + 1}` : ""}` : undefined}
+        style={{ height: top ? m.top : m.bottom, paddingLeft: m.left, paddingRight: m.right }}
+      >
+        {nodes.map((node) =>
+          mode === "edit" ? (
+            <EditBlock key={node.id} node={node} index={indexOf.get(node.id)!} count={lastIndex} selected={node.id === selectedId} zone>
+              <ElementView node={node} mode={mode} page={info} selected={node.id === selectedId} onUpdate={onUpdate} />
+            </EditBlock>
+          ) : (
+            <ElementView key={node.id} node={node} mode={mode} page={info} />
+          ),
+        )}
+      </div>
+    );
+  };
 
   return (
     <section {...pageAttrs}>
-      {region(header, "top")}
+      {zone("header")}
       <div className="pd-content" style={{ top: m.top, left: m.left, right: m.right, bottom: m.bottom }}>
         {empty && <EmptyHint />}
         {page.fragments.map((f) => {
           const node = byId.get(f.nodeId);
           if (!node) return null;
-          const view = <ElementView node={node} mode={mode} fragment={f} onUpdate={mode === "edit" ? onUpdate : undefined} />;
+          const view = <ElementView node={node} mode={mode} fragment={f} page={info} onUpdate={mode === "edit" ? onUpdate : undefined} />;
           if (mode !== "edit") return <Fragment key={`${f.nodeId}:${f.from ?? 0}`}>{view}</Fragment>;
           const index = indexOf.get(node.id)!;
           return (
@@ -454,7 +485,7 @@ export function Page({ page, section, visible, number, total, doc, byId, indexOf
           );
         })}
       </div>
-      {region(footer, "bottom")}
+      {zone("footer")}
     </section>
   );
 }
@@ -464,7 +495,8 @@ interface EditBlockProps {
   index: number;
   count: number;
   selected: boolean;
-  region?: boolean;
+  /** A header/footer element: no drag handle (it isn't in the body flow). */
+  zone?: boolean;
   dropBefore?: boolean;
   dropAfter?: boolean;
   children: React.ReactNode;
@@ -473,7 +505,22 @@ interface EditBlockProps {
 /** Editor chrome around one fragment: selection outline and a toolbar in the page margin. */
 const focusedInserts = new Set<string>();
 
-function EditBlock({ node, index, selected, region, dropBefore, dropAfter, children }: EditBlockProps) {
+/**
+ * The page last clicked or focused, so a new header/footer element focuses
+ * its copy there. (Clicking empty space doesn't move focus, so the focused
+ * element alone can be on another page.)
+ */
+let lastPage: Element | null = null;
+if (typeof document !== "undefined") {
+  const track = (e: Event) => {
+    const page = (e.target as Element | null)?.closest?.(".pd-page");
+    if (page) lastPage = page;
+  };
+  document.addEventListener("mousedown", track, true);
+  document.addEventListener("focusin", track, true);
+}
+
+function EditBlock({ node, index, selected, zone, dropBefore, dropAfter, children }: EditBlockProps) {
   const { state, dispatch } = useEditor();
   const { settings } = useUi();
   const menu = useMenu();
@@ -486,7 +533,13 @@ function EditBlock({ node, index, selected, region, dropBefore, dropAfter, child
   // A just inserted or duplicated block: put the caret in its first editable
   // text, selecting the default content so typing replaces it.
   useEffect(() => {
-    if (!justInserted || region || focusedInserts.has(node.id)) return;
+    if (!justInserted || focusedInserts.has(node.id)) return;
+    // A header/footer element is on every page: focus the copy on the page
+    // being worked on, not the first one.
+    if (zone) {
+      const page = ref.current?.closest(".pd-page");
+      if (lastPage && page !== lastPage && document.body.contains(lastPage)) return;
+    }
     focusedInserts.add(node.id);
     const editable = ref.current?.querySelector<HTMLElement>("[data-editable]");
     ref.current?.scrollIntoView({ block: "nearest" });
@@ -498,11 +551,11 @@ function EditBlock({ node, index, selected, region, dropBefore, dropAfter, child
     const sel = window.getSelection();
     sel?.removeAllRanges();
     sel?.addRange(range);
-  }, [justInserted, region, node.id]);
+  }, [justInserted, zone, node.id]);
 
   let className = "ed-block";
   if (selected) className += " is-selected";
-  if (region) className += " ed-region";
+  if (zone) className += " ed-zone";
   if (dropBefore) className += " drop-before";
   if (dropAfter) className += " drop-after";
 
@@ -510,7 +563,7 @@ function EditBlock({ node, index, selected, region, dropBefore, dropAfter, child
     <div
       ref={ref}
       className={className}
-      data-index={region ? undefined : index}
+      data-index={index}
       onMouseDown={(e) => {
         if (e.button === 0 && !selected) dispatch({ type: "select", id: node.id });
       }}
@@ -519,8 +572,8 @@ function EditBlock({ node, index, selected, region, dropBefore, dropAfter, child
         contextMenu(e, elementMenu(node));
       }}
     >
-      {!region && (
-        <div className="ed-block-bar" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="ed-block-bar" onMouseDown={(e) => e.stopPropagation()}>
+        {!zone && (
           <span
             className="ed-handle"
             draggable
@@ -533,18 +586,18 @@ function EditBlock({ node, index, selected, region, dropBefore, dropAfter, child
           >
             <GripVertical size={14} />
           </span>
-          <button
-            title="More actions"
-            onClick={(e) => {
-              dispatch({ type: "select", id: node.id });
-              const r = e.currentTarget.getBoundingClientRect();
-              menu.open({ items: elementMenu(node), x: r.left, y: r.bottom + 4 });
-            }}
-          >
-            <Ellipsis size={14} />
-          </button>
-        </div>
-      )}
+        )}
+        <button
+          title="More actions"
+          onClick={(e) => {
+            dispatch({ type: "select", id: node.id });
+            const r = e.currentTarget.getBoundingClientRect();
+            menu.open({ items: elementMenu(node), x: r.left, y: r.bottom + 4 });
+          }}
+        >
+          <Ellipsis size={14} />
+        </button>
+      </div>
       {children}
       {selected && settings.boxModel && <BoxModelOverlay containerRef={ref} />}
     </div>

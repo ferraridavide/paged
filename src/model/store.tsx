@@ -3,17 +3,23 @@ import { getDefinition } from "../elements/registry";
 import { newId } from "./ids";
 import { sampleDocument } from "./sample";
 import { propsRuns, runsText } from "./runs";
-import type { ComponentFile, ComponentSource, DocumentModel, ElementNode, PageSettings, StyleMap } from "./types";
+import type { ComponentFile, ComponentSource, DocumentModel, ElementNode, PageSettings, StyleMap, Zone } from "./types";
 
 export type Action =
   | { type: "select"; id: string | null }
-  | { type: "insert"; elementType: string; index?: number }
-  | { type: "insertNode"; node: ElementNode; index?: number }
+  /** `zone`: insert into a header/footer zone instead of the body. */
+  | { type: "insert"; elementType: string; index?: number; zone?: Zone }
+  | { type: "insertNode"; node: ElementNode; index?: number; zone?: Zone }
+  /** Insert several nodes at once (one undo step), e.g. copying a linked header into a section. */
+  | { type: "insertNodes"; nodes: ElementNode[]; index: number }
+  | { type: "removeMany"; ids: string[] }
   | { type: "updateProps"; id: string; patch: Record<string, unknown> }
   | { type: "updateStyle"; id: string; style: StyleMap }
   | { type: "setClasses"; id: string; classes: string[] }
   | { type: "remove"; id: string }
   | { type: "move"; id: string; to: number }
+  /** Swap with the previous/next element of the same zone (or of the body), within its section for zones. */
+  | { type: "step"; id: string; by: -1 | 1 }
   | { type: "duplicate"; id: string }
   | { type: "updatePage"; patch: Partial<PageSettings> }
   | { type: "updateDoc"; patch: Partial<Pick<DocumentModel, "title" | "customCss">> }
@@ -24,7 +30,7 @@ export type Action =
   | { type: "writeFile"; id: string; path: string; file: ComponentFile }
   | { type: "deleteFile"; id: string; path: string }
   | { type: "renameFile"; id: string; from: string; to: string }
-  | { type: "placeEphemeral"; index: number }
+  | { type: "placeEphemeral"; index: number; zone?: Zone }
   | { type: "settleEphemeral" }
   | { type: "undo" }
   | { type: "redo" };
@@ -62,15 +68,35 @@ function applyToDoc(state: EditorState, action: Action): { doc: DocumentModel; s
       const def = getDefinition(action.elementType);
       if (!def) return null;
       const { props, style } = def.create();
-      const node: ElementNode = { id: newId(), type: def.type, props, style: style ?? {} };
+      const node: ElementNode = withZone({ id: newId(), type: def.type, props, style: style ?? {} }, action.zone);
       const index = action.index ?? doc.elements.length;
       const elements = [...doc.elements.slice(0, index), node, ...doc.elements.slice(index)];
       return { doc: { ...doc, elements }, selectedId: node.id };
     }
     case "insertNode": {
       const index = action.index ?? doc.elements.length;
-      const elements = [...doc.elements.slice(0, index), action.node, ...doc.elements.slice(index)];
-      return { doc: { ...doc, elements }, selectedId: action.node.id };
+      const node = withZone(action.node, action.zone);
+      const elements = [...doc.elements.slice(0, index), node, ...doc.elements.slice(index)];
+      return { doc: { ...doc, elements }, selectedId: node.id };
+    }
+    case "insertNodes": {
+      const elements = [...doc.elements.slice(0, action.index), ...action.nodes, ...doc.elements.slice(action.index)];
+      return { doc: { ...doc, elements } };
+    }
+    case "removeMany": {
+      const ids = new Set(action.ids);
+      return {
+        doc: { ...doc, elements: doc.elements.filter((n) => !ids.has(n.id)) },
+        selectedId: state.selectedId && ids.has(state.selectedId) ? null : state.selectedId,
+      };
+    }
+    case "step": {
+      const from = doc.elements.findIndex((n) => n.id === action.id);
+      const to = stepTarget(doc, action.id, action.by);
+      if (to === null) return null;
+      const elements = [...doc.elements];
+      [elements[from], elements[to]] = [elements[to], elements[from]];
+      return { doc: { ...doc, elements } };
     }
     case "updateProps": {
       // "$state" in a patch targets the element's own state, not its props.
@@ -228,7 +254,7 @@ export function reducer(current: EditorState, action: Action): EditorState {
       const removed = previous >= 0 && isEmptyText(state.doc.elements[previous]);
       const base = settle(state);
       if (removed && previous < index) index--;
-      const node: ElementNode = { id: newId(), type: "text", props: { runs: [] }, style: {} };
+      const node = withZone({ id: newId(), type: "text", props: { runs: [] }, style: {} }, action.zone);
       const elements = [...base.doc.elements.slice(0, index), node, ...base.doc.elements.slice(index)];
       return { ...base, doc: { ...base.doc, elements }, selectedId: node.id, lastInserted: node.id, ephemeral: node.id, lastEdit: null };
     }
@@ -284,6 +310,31 @@ export function reducer(current: EditorState, action: Action): EditorState {
   };
 }
 
+/** The node, placed in `zone` (or the body when it's undefined). */
+function withZone(node: ElementNode, zone: Zone | undefined): ElementNode {
+  const { zone: _old, ...rest } = node;
+  return zone ? { ...rest, zone } : rest;
+}
+
+const startsSection = (n: ElementNode) =>
+  n.type === "page-break" && !!(n.props as { section?: unknown }).section;
+
+/**
+ * Where "move up/down" takes an element: the index of the closest element in
+ * the same place (the body, or the same zone of the same section), or null.
+ */
+export function stepTarget(doc: DocumentModel, id: string, by: -1 | 1): number | null {
+  const from = doc.elements.findIndex((n) => n.id === id);
+  if (from < 0) return null;
+  const zone = doc.elements[from].zone;
+  for (let to = from + by; to >= 0 && to < doc.elements.length; to += by) {
+    const n = doc.elements[to];
+    if (n.zone === zone) return to;
+    if (zone && startsSection(n)) return null;
+  }
+  return null;
+}
+
 function updateComponentFiles(
   doc: DocumentModel,
   id: string,
@@ -312,11 +363,24 @@ export function normalizeDocument(input: DocumentModel | LegacyDocument): Docume
     return { id: c.id, name: c.name, entry: "index.tsx", files: { "index.tsx": { kind: "text", content: source } }, dependencies };
   });
   // Paragraphs were a plain `text` string before inline runs.
-  const elements = doc.elements.map((n) => {
+  let elements = doc.elements.map((n) => {
     if (n.type !== "text" || Array.isArray(n.props.runs)) return n;
     const { text: _text, ...rest } = n.props;
     return { ...n, props: { ...rest, runs: propsRuns(n.props) } };
   });
+  // Header and footer were special elements placed anywhere, the last one on
+  // or before a page applying to it. They become running text in the
+  // document's header/footer zone; the first of each kind moves to the top so
+  // it applies from the first page, any later one to its own section.
+  if (elements.some((n) => n.type === "header" || n.type === "footer")) {
+    elements = elements.map((n) =>
+      n.type === "header" || n.type === "footer" ? { ...n, type: "running-text", zone: n.type as Zone } : n,
+    );
+    const firsts = (["header", "footer"] as const)
+      .map((zone) => elements.find((n) => n.type === "running-text" && n.zone === zone))
+      .filter((n): n is ElementNode => !!n);
+    elements = [...firsts, ...elements.filter((n) => !firsts.includes(n))];
+  }
   return { ...doc, elements, customCss: doc.customCss ?? "", components };
 }
 

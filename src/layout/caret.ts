@@ -14,6 +14,11 @@ interface CaretRecord {
   offset: number;
   /** Start of the fragment the caret was in. */
   base: number;
+  /**
+   * The page it was on. Header/footer fields are on every page under the same
+   * key, so this picks the copy being typed in.
+   */
+  page?: string;
 }
 
 let last: CaretRecord | null = null;
@@ -114,7 +119,7 @@ export function recordCaret(el: HTMLElement) {
   const local = getCaretOffset(el);
   if (!key || local === null) return;
   const base = Number(el.dataset.caretBase ?? 0);
-  last = { key, offset: base + local, base };
+  last = { key, offset: base + local, base, page: el.closest<HTMLElement>(".pd-page")?.dataset.page };
 }
 
 /** Ask for the caret to go to `offset` in field `key` once that field is on screen. */
@@ -147,7 +152,12 @@ export function restoreCaret(root: HTMLElement | null) {
   const target = pending ?? last;
   if (!target) return;
 
-  const candidates = [...root.querySelectorAll<HTMLElement>(`[data-caret-key="${CSS.escape(target.key)}"]`)];
+  const page = last?.page;
+  const onPage = (el: HTMLElement) => (page !== undefined && el.closest<HTMLElement>(".pd-page")?.dataset.page === page ? 0 : 1);
+  // Copies on the caret's page first (the same field repeats in every page's header).
+  const candidates = [...root.querySelectorAll<HTMLElement>(`[data-caret-key="${CSS.escape(target.key)}"]`)].sort(
+    (a, b) => onPage(a) - onPage(b),
+  );
   if (!candidates.length) return; // not rendered yet; keep `pending` for the next layout
 
   const lengthOf = (el: HTMLElement) => readText(el).length;
@@ -155,7 +165,8 @@ export function restoreCaret(root: HTMLElement | null) {
   const el =
     candidates.find((c) => target.offset >= baseOf(c) && target.offset < baseOf(c) + lengthOf(c)) ??
     candidates.find((c) => target.offset >= baseOf(c) && target.offset <= baseOf(c) + lengthOf(c)) ??
-    candidates[candidates.length - 1];
+    // Past every fragment: the last one (sorting is stable, so the caret's page wins ties).
+    [...candidates].sort((a, b) => baseOf(b) - baseOf(a))[0];
 
   const active = document.activeElement;
   const lostFocus = !active || active === document.body;

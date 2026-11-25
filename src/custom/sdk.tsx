@@ -51,6 +51,8 @@ interface ElementContextValue {
   node: ElementNode;
   mode: Mode;
   update: (patch: Record<string, unknown>) => void;
+  /** The page being rendered; undefined while the paginator measures the element. */
+  page?: { number: number; total: number };
 }
 
 export const ElementContext = createContext<ElementContextValue | null>(null);
@@ -60,6 +62,15 @@ export function useElement() {
   const ctx = useContext(ElementContext);
   if (!ctx) throw new Error("useElement() must be used inside a custom element's render");
   return ctx;
+}
+
+/**
+ * The page this copy of the element is on: `{ number, total }`. Elements in
+ * a header or footer are drawn on every page, once per page. Undefined while
+ * the paginator measures the element (keep its size the same either way).
+ */
+export function usePageInfo() {
+  return useElement().page;
 }
 
 /**

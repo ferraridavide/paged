@@ -4,8 +4,7 @@ import {
   List,
   Minus,
   MoveVertical,
-  PanelBottom,
-  PanelTop,
+  Hash,
   Pilcrow,
   Puzzle,
   SeparatorHorizontal,
@@ -22,8 +21,7 @@ const ICONS: Record<string, LucideIcon> = {
   divider: Minus,
   spacer: MoveVertical,
   "page-break": SeparatorHorizontal,
-  header: PanelTop,
-  footer: PanelBottom,
+  "running-text": Hash,
 };
 
 /** Icon for an element type in menus and panels; custom components share one. */

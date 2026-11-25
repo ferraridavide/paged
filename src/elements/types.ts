@@ -49,7 +49,7 @@ export interface ElementComponentProps<P> {
   update: (patch: Partial<P>) => void;
   /** For splittable elements: which part of the element this page shows. */
   fragment?: FragmentInfo;
-  /** For page regions (header/footer): the page being rendered. */
+  /** The page being rendered (absent while the paginator measures). */
   page?: PageInfo;
   selected?: boolean;
   /**
@@ -95,8 +95,6 @@ export interface ElementDefinition<P = any> {
   split?: SplitKind;
   /** Keep on the same page as the next element (headings). */
   keepWithNext?: boolean;
-  /** Not part of the flow: drawn in the page margins of every page. */
-  region?: "header" | "footer";
   /** CSS this element type needs (custom components declare their own). */
   css?: string;
 }

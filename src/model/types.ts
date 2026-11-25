@@ -23,7 +23,15 @@ export interface ElementNode<P = Record<string, unknown>> {
   state?: Record<string, unknown>;
   /** CSS class names, added in the inspector and styled from Document CSS. */
   classes?: string[];
+  /**
+   * Set for elements of a page zone instead of the body flow: drawn in the
+   * top (header) or bottom (footer) margin of every page of their section.
+   */
+  zone?: Zone;
 }
+
+/** The page margins that can hold elements, repeated on every page of a section. */
+export type Zone = "header" | "footer";
 
 export type PageSize = "A4" | "A5" | "Letter" | "Legal";
 export type Orientation = "portrait" | "landscape";

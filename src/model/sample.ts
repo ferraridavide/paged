@@ -578,7 +578,9 @@ export function sampleDocument(): DocumentModel {
       color: "#1c1917",
     },
     elements: [
-      el("header", { left: "{title}", center: "", right: "Acme Inc." }),
+      // The header and footer zones: elements drawn in the page margins.
+      { ...el("running-text", { left: "{title}", center: "", right: "Acme Inc." }), zone: "header" },
+      { ...el("running-text", { left: "", center: "Page {page} of {pages}", right: "" }), zone: "footer" },
       el("heading", { text: "Quarterly Report", level: 1 }, { color: "#312e81" }),
       el(
         "text",
@@ -643,7 +645,6 @@ export function sampleDocument(): DocumentModel {
       el("text", { runs: [{ text: filler }] }),
       el("custom:scene3d", { shape: "knot", color: "#6366f1", height: 85, caption: "Figure 3. A three.js scene, framed in Edit mode" }),
       el("custom:qr", { value: "https://example.com/reports/q3", size: 88, caption: "Scan for the online version" }),
-      el("footer", { left: "", center: "Page {page} of {pages}", right: "" }),
     ],
   };
 }

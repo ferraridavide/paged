@@ -252,8 +252,8 @@ function toDefinition(comp: ComponentSource, spec: ElementSpec, css: string): El
 
   // The element's root carries data-node-id and per-element styles; the
   // author's markup goes inside it, with the SDK context for <Editable>.
-  function CustomElement({ node, mode, root, update }: ElementComponentProps<Record<string, any>>) {
-    const ctx = useMemo(() => ({ node, mode, update }), [node, mode, update]);
+  function CustomElement({ node, mode, root, update, page }: ElementComponentProps<Record<string, any>>) {
+    const ctx = useMemo(() => ({ node, mode, update, page }), [node, mode, update, page]);
     return (
       <div {...root}>
         <ElementContext.Provider value={ctx}>

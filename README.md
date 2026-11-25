@@ -77,6 +77,28 @@ Each section is laid out separately (`src/layout/sections.ts`): its own hidden
 measure flow at its content width, and its own page height, so text reflows
 when a section changes size. Print gives each page size a named `@page` rule.
 
+## Header and footer zones
+
+The header and footer are **zones** of the page, not special elements: the
+top and bottom margins hold any elements, built-in or custom, drawn on every
+page of a section. In Edit mode, hover a page margin to see its zone; click
+empty space there to type, or right-click it to insert or paste into it.
+The **Page number & title** element is left/centre/right text with
+`{page}`, `{pages}` and `{title}`; it works in the body too.
+
+Zone elements are ordinary elements with `zone: "header" | "footer"`, kept
+in the document's element list: a zone element belongs to the section it's
+in. A section with no header of its own shows the previous section's (like
+Word's "link to previous", labelled "same as section N"); right-click → "Give
+section N its own header" copies it, "Same header as the previous section"
+links it back. Section settings still hide the header/footer, or skip them on
+a section's first page.
+
+Zone elements don't take part in pagination, and content taller than the
+margin spills over the body: make the margin bigger. Custom components can
+read the page they're drawn on with `usePageInfo()` (`{ number, total }`,
+undefined while measured).
+
 ## Classes and CSS
 
 Every element can carry CSS classes: type them into **Classes** at the top of
@@ -244,8 +266,9 @@ Base look goes in `src/styles/document.css` under `.hd-<type>`.
 
 ## Known gaps (first draft)
 
-- Text is plain: no bold, italic or links inside a paragraph yet.
-- No nesting (columns, sections). The document is a flat list.
+- No links inside a paragraph yet.
+- No nesting (columns). The document is a flat list; sections and zones are
+  derived from it.
 - A typing method that composes characters (e.g. Japanese input) is only
   checked at composition end, not tested.
 - Browser find (Cmd+F) only sees pages near the viewport.

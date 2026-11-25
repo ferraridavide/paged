@@ -306,7 +306,23 @@ body.is-resizing iframe, body.is-resizing .canvas { pointer-events: none; }
 /* With the box-model overlay on, it draws the selection; otherwise outline it here. */
 .ed-block.is-selected::after { border-color: transparent; }
 .no-box-model .ed-block.is-selected::after { border: 1.5px solid var(--accent); }
-.ed-region:hover::after { border-style: dashed; }
+
+/* Header and footer zones: outlined with their name on hover, like a word processor. */
+.pd-edit .pd-zone { cursor: text; }
+.pd-edit .pd-zone::before {
+  content: ""; position: absolute; inset: 3px 6px; border: 1px dashed transparent; border-radius: 3px; pointer-events: none;
+}
+.pd-edit .pd-zone::after {
+  content: attr(data-label); position: absolute; left: 10px; padding: 1px 6px; border-radius: 3px;
+  background: var(--accent-soft, #eef2ff); color: var(--accent, #4f46e5); font: 500 10px/1.5 var(--font-ui, system-ui, sans-serif);
+  pointer-events: none; opacity: 0; transition: opacity 0.12s;
+}
+.pd-edit .pd-margin-top.pd-zone::after { bottom: 4px; }
+.pd-edit .pd-margin-bottom.pd-zone::after { top: 4px; }
+.pd-edit .pd-zone:hover::before, .pd-edit .pd-zone:has(.is-selected)::before { border-color: var(--accent-line); }
+.pd-edit .pd-zone:hover::after, .pd-edit .pd-zone:has(.is-selected)::after { opacity: 1; }
+.pd-edit .pd-zone.is-empty:hover::after { content: attr(data-label) " · click to type, right-click to insert"; }
+.ed-zone:hover::after { border-style: dashed; }
 
 /* Handle and actions, in the page's left margin. */
 .ed-block-bar {
