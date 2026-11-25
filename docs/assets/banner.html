@@ -1,0 +1,76 @@
+<!doctype html>
+<!--
+  Paged Editor banner, 1270x760. Rendered to banner.jpg (JPG, quality 92) with headless Chrome
+  at a 1270x760 window and device scale factor 1, e.g.:
+    chrome --headless=new --hide-scrollbars --force-device-scale-factor=1 --window-size=1270,760 \
+      --screenshot=banner.png file://$PWD/docs/assets/banner.html
+  then converted to JPG (sips -s format jpeg -s formatOptions 92 banner.png --out banner.jpg).
+  Brand: the ¶ mark and indigo gradient from .app-mark in src/styles/app.css.
+  The screenshot is editor.png, next to this file.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+  body {
+    width: 1270px; height: 760px; overflow: hidden; box-sizing: border-box;
+    padding: 70px 70px 0;
+    background:
+      radial-gradient(ellipse 620px 360px at 50% 640px, rgba(129, 140, 248, 0.45), transparent 70%),
+      radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1.2px) 0 0 / 22px 22px,
+      linear-gradient(160deg, #312e81 0%, #1e1b4b 100%);
+    color: white;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .title { display: flex; align-items: center; gap: 18px; }
+  .mark {
+    display: grid; place-items: center; width: 60px; height: 60px; border-radius: 15px;
+    background: linear-gradient(160deg, #6366f1, #4338ca); font-size: 33px; font-weight: 600;
+    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.18), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+  h1 { margin: 0; font-size: 50px; font-weight: 700; letter-spacing: -0.02em; }
+  .promise { margin: 16px 0 0; font-size: 23px; color: #c7d2fe; letter-spacing: -0.005em; }
+  .pills { display: flex; gap: 10px; margin-top: 20px; }
+  .pill {
+    padding: 7px 15px; border-radius: 999px; font-size: 15px; font-weight: 500; color: #e0e7ff;
+    background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(199, 210, 254, 0.25);
+  }
+  .window {
+    margin-top: 34px; width: 800px; height: 429px; border-radius: 12px; overflow: hidden;
+    background: #fff; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15), 0 24px 60px rgba(0, 0, 0, 0.45);
+    display: flex; flex-direction: column;
+  }
+  .bar {
+    height: 30px; flex: none; display: flex; align-items: center; gap: 7px; padding: 0 12px;
+    background: #f4f4f5; border-bottom: 1px solid #e4e4e7; position: relative;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .url {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    font-size: 12px; color: #52525b; background: #fff; border: 1px solid #e4e4e7;
+    border-radius: 6px; padding: 2px 40px;
+  }
+  .shot { flex: 1; background: url("editor.png") top left / 800px auto no-repeat; }
+</style>
+</head>
+<body>
+  <div class="title"><span class="mark">¶</span><h1>Paged Editor</h1></div>
+  <p class="promise">Write print documents on real pages, with React components as your building blocks.</p>
+  <div class="pills">
+    <span class="pill">What you edit is what prints</span>
+    <span class="pill">Style with CSS</span>
+    <span class="pill">Write your own components</span>
+  </div>
+  <div class="window">
+    <div class="bar">
+      <span class="dot" style="background:#ff5f57"></span>
+      <span class="dot" style="background:#febc2e"></span>
+      <span class="dot" style="background:#28c840"></span>
+      <span class="url">paged.davide.im</span>
+    </div>
+    <div class="shot"></div>
+  </div>
+</body>
+</html>
