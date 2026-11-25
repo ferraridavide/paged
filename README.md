@@ -229,6 +229,17 @@ entirely in the browser (Google Identity Services + Drive REST API, scope
 values in `.env.local`: see [docs/google-drive.md](docs/google-drive.md),
 which also covers Drive's "Open with" menu over a Cloudflare tunnel.
 
+## Deployment
+
+Every push to `main` builds the app and publishes it to GitHub Pages at
+<https://paged.davide.im> (`.github/workflows/deploy.yml`). On GitHub, set
+**Settings → Pages → Source** to *GitHub Actions* and the custom domain to
+`paged.davide.im`, and add the `VITE_GOOGLE_*` values from `.env.example` as
+repository **variables** (Settings → Secrets and variables → Actions →
+Variables). Vite inlines them into the public bundle, so they aren't secret;
+the Google side is locked down by the OAuth origin and the API key's website
+restriction, which both need `https://paged.davide.im` added.
+
 ## The .pdoc format
 
 **Save .pdoc** writes a zip, like .docx:
