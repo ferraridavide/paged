@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+  <!-- Paged Editor logo for the Google OAuth consent screen (export: 120×120 PNG). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#4338ca"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" fill="url(#bg)"/>
+  <g transform="translate(60 60) scale(1.2) translate(-60 -60)">
+  <!-- the page, with a folded corner -->
+  <path d="M34 28a4 4 0 0 1 4-4H74L86 36V92a4 4 0 0 1-4 4H38a4 4 0 0 1-4-4Z" fill="#ffffff"/>
+  <path d="M74 24V32a4 4 0 0 0 4 4H86Z" fill="#c7d2fe"/>
+  <!-- pilcrow ¶ -->
+  <path transform="translate(3.5 0)" d="M70 42H54a11 11 0 0 0 0 22H58V80H62V46H66V80H70Z" fill="#4338ca"/>
+  </g>
+</svg>

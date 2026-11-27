@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs><linearGradient id="g" x1="0.3" y1="0" x2="0.7" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#4338ca"/></linearGradient></defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#g)"/>
+  <!-- pilcrow -->
+  <path transform="translate(-6 0)" fill="#fff" d="M112 60h80v20h-16v116h-20V80h-14v116h-20v-62a37 37 0 0 1 0-74z"/>
+</svg>
