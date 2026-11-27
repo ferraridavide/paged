@@ -434,4 +434,7 @@ Built with [React](https://react.dev), [Vite](https://vite.dev),
 Google Drive and Google Picker are trademarks of Google LLC; this project is not affiliated with
 Google.
 
+The hosted editor's [Privacy Policy](https://paged.davide.im/privacy.html) and
+[Terms of Service](https://paged.davide.im/terms.html) are in [`public/`](public/).
+
 The repository doesn't include a license file yet.

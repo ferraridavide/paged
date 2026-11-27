@@ -466,6 +466,16 @@ export function useCommands() {
       icon: ExternalLink,
       run: () => window.open(REPO_URL, "_blank", "noopener"),
     },
+    privacy: {
+      label: "Privacy policy",
+      icon: ExternalLink,
+      run: () => window.open(`${import.meta.env.BASE_URL}privacy.html`, "_blank", "noopener"),
+    },
+    terms: {
+      label: "Terms of service",
+      icon: ExternalLink,
+      run: () => window.open(`${import.meta.env.BASE_URL}terms.html`, "_blank", "noopener"),
+    },
     commit: {
       label: COMMIT_HASH ? `Version ${COMMIT_HASH.slice(0, 7)}` : "Version unknown",
       icon: GitCommitHorizontal,

@@ -1,0 +1,33 @@
+/* Styles for privacy.html and terms.html. */
+:root {
+  --text: #1c1917;
+  --muted: #57534e;
+  --line: #e7e5e4;
+  --accent: #4f46e5;
+  --bg: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --text: #e7e5e4; --muted: #a8a29e; --line: #3f3f46; --accent: #a5b4fc; --bg: #18181b; }
+}
+html { background: var(--bg); color: var(--text); }
+body {
+  margin: 0 auto; max-width: 680px; padding: 48px 20px 64px;
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+}
+header { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+.mark {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; flex: none;
+  background: linear-gradient(160deg, #6366f1, #4338ca); color: white; font-size: 17px; font-weight: 600;
+  text-decoration: none;
+}
+header a.name { color: var(--text); font-weight: 600; text-decoration: none; }
+h1 { font-size: 30px; line-height: 1.2; margin: 0 0 4px; letter-spacing: -0.01em; }
+.updated { color: var(--muted); margin: 0 0 32px; }
+h2 { font-size: 19px; margin: 32px 0 8px; }
+p, ul { margin: 0 0 12px; }
+ul { padding-left: 22px; }
+li { margin-bottom: 4px; }
+a { color: var(--accent); }
+code { font-size: 0.9em; }
+footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+footer a { margin-right: 16px; }

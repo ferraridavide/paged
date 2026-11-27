@@ -112,7 +112,7 @@ export function AppHeader({ commands: c }: { commands: Commands }) {
           ui.studio !== null && item(c.backToDocument),
         ]),
     },
-    { title: "Help", items: () => [item(c.shortcuts), { type: "separator" }, item(c.github), item(c.commit)] },
+    { title: "Help", items: () => [item(c.shortcuts), { type: "separator" }, item(c.github), item(c.privacy), item(c.terms), item(c.commit)] },
   ];
 
   return (
