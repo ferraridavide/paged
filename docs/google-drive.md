@@ -196,10 +196,10 @@ integration** tab:
 | Application name | `Paged Editor` |
 | Short / long description | optional |
 | Application icons | PNGs with a transparent background (Drive can take up to 24 h to show them) |
-| Open URL | `https://<your tunnel host>/` |
+| Open URL | `https://<your tunnel host>/editor/` |
 | Default MIME types | `application/vnd.paged-editor+zip` |
 | Default file extensions | `pdoc` |
-| Creating files | ticked; **New URL** `https://<your tunnel host>/`; leave *Document name* empty |
+| Creating files | ticked; **New URL** `https://<your tunnel host>/editor/`; leave *Document name* empty |
 | Importing | leave unticked (Google Docs files aren't .pdoc) |
 | Shared drives support | tick it to allow files in shared drives |
 
@@ -212,7 +212,7 @@ That option is deprecated, and the editor starts sign-in itself. Click
 1. Set `VITE_GOOGLE_DRIVE_INSTALL=true` in `.env.local` and restart
    `pnpm dev`. Make sure `drive.install` is among the consent screen's scopes
    (step 3).
-2. Open the editor at the **tunnel** address and use **File → Open from
+2. Open the editor at the **tunnel** address (`/editor/`) and use **File → Open from
    Google Drive…** once. The consent now includes letting Paged Editor
    "appear as an option in the Open with or New menu". Granting it installs
    the app for your account.

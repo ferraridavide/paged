@@ -38,6 +38,16 @@ export function StatusBar() {
         </button>
       )}
       <span className="status-spacer" />
+      <span className="status-dim status-about">
+        <a href={import.meta.env.BASE_URL}>Paged Editor</a> ·{" "}
+        <a href={`${import.meta.env.BASE_URL}privacy.html`} target="_blank" rel="noopener">
+          Privacy
+        </a>{" "}
+        ·{" "}
+        <a href={`${import.meta.env.BASE_URL}terms.html`} target="_blank" rel="noopener">
+          Terms
+        </a>
+      </span>
       <DriveStatus />
       <span className="status-dim">{ui.settings.mode === "edit" ? "Editing" : "Preview"}</span>
       <div className="zoom-control">

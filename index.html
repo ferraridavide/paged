@@ -3,24 +3,206 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Paged Editor</title>
-    <!--
-      Custom components and CDN packages import these bare specifiers; they
-      resolve to the editor's own instances (see scripts/gen-runtime.mjs).
-    -->
-    <script type="importmap">
-      {
-        "imports": {
-          "react": "/runtime/react.js",
-          "react/jsx-runtime": "/runtime/react-jsx-runtime.js",
-          "react-dom": "/runtime/react-dom.js",
-          "@paged/sdk": "/runtime/sdk.js"
-        }
-      }
+    <title>Paged Editor · Print documents built from React components</title>
+    <meta name="description" content="Paged Editor is an open-source editor for print documents that runs in your browser. Every element on the page is a React component: use the built-in ones or write your own, style them with CSS, and print or save to PDF." />
+    <meta property="og:title" content="Paged Editor" />
+    <meta property="og:description" content="Write print documents on real pages, with React components as your building blocks." />
+    <link rel="canonical" href="https://paged.davide.im/" />
+    <script>
+      // Google Drive's "Open with" and "New" menus may still send people to /?state=…:
+      // pass the request on to the editor.
+      if (new URLSearchParams(location.search).has("state")) location.replace("/editor/" + location.search);
     </script>
+    <link rel="stylesheet" href="/src/site/home.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <header class="hero">
+      <nav class="nav wrap">
+        <a class="brand" href="/"><span class="mark">¶</span>Paged Editor</a>
+        <span class="nav-links">
+          <a href="https://github.com/ferraridavide/paged">GitHub</a>
+          <a class="btn btn-small" href="/editor/">Open the editor</a>
+        </span>
+      </nav>
+
+      <div class="wrap hero-text">
+        <h1>Write print documents on real pages, with React components as your building blocks.</h1>
+        <p class="lead">
+          Paged Editor is an open-source editor that runs in your browser. Every element on the page is a
+          React component: use the built-in ones or write your own, style them with CSS, and print or save
+          to PDF.
+        </p>
+        <p class="cta">
+          <a class="btn btn-primary" href="/editor/">Open the editor</a>
+          <a class="btn btn-ghost" href="https://github.com/ferraridavide/paged">Source on GitHub</a>
+        </p>
+        <p class="fine">Free and open source. No account, no backend, no telemetry.</p>
+      </div>
+
+      <div class="wrap">
+        <figure class="window">
+          <div class="window-bar"><span></span><span></span><span></span><b>paged.davide.im/editor</b></div>
+          <img src="/docs/assets/editor.png" width="2880" height="1800" alt="The editor with a three-page Quarterly Report: a heading, formatted paragraph, bullet list, bar chart and table on an A4 page, with the page settings inspector on the right" />
+        </figure>
+      </div>
+    </header>
+
+    <main>
+      <section class="wrap split">
+        <div>
+          <p class="eyebrow">Pages</p>
+          <h2>What you edit is what prints</h2>
+          <p>
+            You type directly on the page. Edit mode, Preview and print use the same page layout, so line
+            breaks and page breaks stay where you see them.
+          </p>
+          <ul class="checks">
+            <li>Paragraphs split across pages by line, lists by item, tables by row with the header repeated.</li>
+            <li>A4, A5, Letter or Legal, portrait or landscape, with your own margins.</li>
+            <li>Pages lay out as you type: about 1 to 3 ms per pass on a 67-page test document.</li>
+            <li>Print or save as PDF from the browser's print dialog.</li>
+          </ul>
+        </div>
+        <div class="diagram" aria-hidden="true">
+          <div class="sheet">
+            <i class="l h"></i><i class="l"></i><i class="l"></i><i class="l s"></i>
+            <i class="tbl"><b></b><b></b><b></b></i>
+            <span class="folio">1</span>
+          </div>
+          <div class="sheet">
+            <i class="tbl cont"><b class="head"></b><b></b><b></b></i>
+            <i class="l"></i><i class="l"></i><i class="l s"></i>
+            <span class="folio">2</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="wrap split reverse">
+        <div>
+          <p class="eyebrow">CSS</p>
+          <h2>Style elements with CSS</h2>
+          <p>
+            Give any element classes and style them in the document's CSS. A section of pages can have its
+            own CSS, and each element can have its own styles. The CSS editors have code completion.
+          </p>
+          <ul class="checks">
+            <li>Styles are scoped to the document, so they never change the editor around it.</li>
+            <li>The more specific context wins: document, then section, then the element itself.</li>
+            <li>Copy and paste styles between elements.</li>
+          </ul>
+        </div>
+        <pre class="code"><code><span class="c">/* Document CSS */</span>
+<span class="s">.cover</span> <span class="s">.hd-heading</span> {
+  <span class="p">font-size</span>: 40pt;
+  <span class="p">color</span>: #312e81;
+}
+
+<span class="s">.note</span> {
+  <span class="p">border-left</span>: 3px solid #6366f1;
+  <span class="p">padding-left</span>: 4mm;
+}</code></pre>
+      </section>
+
+      <section class="wrap stack">
+        <p class="eyebrow">Components</p>
+        <h2>Write your own components</h2>
+        <p class="narrow">
+          When the built-in elements aren't enough, write a React component in the component studio. It is
+          saved inside the document, so the file carries everything needed to render it.
+        </p>
+        <figure class="window">
+          <div class="window-bar"><span></span><span></span><span></span><b>Component studio</b></div>
+          <img src="/docs/assets/component-studio.png" width="2880" height="1800" loading="lazy" alt="The component studio editing a Callout component: a file tree, the TSX source, a live preview of the callout, and controls for its fields" />
+        </figure>
+        <div class="grid three">
+          <div>
+            <h3>A studio for each component</h3>
+            <p>Code editor with completion, a live preview at page width, controls for each field, problems and console.</p>
+          </div>
+          <div>
+            <h3>npm packages</h3>
+            <p>Pin a package and version, and import it. The sample document uses Chart.js, three.js and a QR code library.</p>
+          </div>
+          <div>
+            <h3>Editable on the page</h3>
+            <p>Fields marked editable are typed into directly on the page. Other props are set in the inspector.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="wrap stack">
+        <p class="eyebrow">Also included</p>
+        <h2>The rest of a document editor</h2>
+        <div class="grid three cards">
+          <div>
+            <h3>Sections</h3>
+            <p>A range of pages gets its own size, orientation, margins, header, footer, background and CSS.</p>
+          </div>
+          <div>
+            <h3>Header and footer</h3>
+            <p>The page margins hold any element, including page numbers and the document title.</p>
+          </div>
+          <div>
+            <h3>Formatted text</h3>
+            <p>Bold, italic, underline, strikethrough, font, size, colour and highlight within a paragraph.</p>
+          </div>
+          <div>
+            <h3>Tables and images</h3>
+            <p>Resizable table columns, striped rows, header rows. Images with captions and alignment.</p>
+          </div>
+          <div>
+            <h3>Menus and shortcuts</h3>
+            <p>A menu bar, right-click menus, undo and redo, and keyboard shortcuts for every common action.</p>
+          </div>
+          <div>
+            <h3>Google Drive</h3>
+            <p>Open documents from Drive and save them back. The editor only sees the files you pick.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="wrap split">
+        <div>
+          <p class="eyebrow">Your files</p>
+          <h2>Documents stay with you</h2>
+          <p>
+            Paged Editor has no backend. Documents autosave in your browser and save as
+            <code>.pdoc</code> files, a zip with the document, its components and its images. Google Drive is
+            optional.
+          </p>
+          <p><a href="/privacy.html">Read the privacy policy</a></p>
+        </div>
+        <pre class="code"><code>report.pdoc
+├── mimetype
+├── document.json
+├── components/
+│   └── chart-k3f9/
+│       ├── component.json
+│       └── index.tsx
+└── media/
+    └── el_p2x7-src.png</code></pre>
+      </section>
+
+      <section class="final">
+        <div class="wrap">
+          <h2>Try it with the sample document</h2>
+          <p>The editor opens a three-page report with a chart, a table and four custom components.</p>
+          <p class="cta">
+            <a class="btn btn-primary" href="/editor/">Open the editor</a>
+            <a class="btn btn-ghost" href="https://github.com/ferraridavide/paged">Source on GitHub</a>
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer wrap">
+      <span><span class="mark mark-small">¶</span> Paged Editor</span>
+      <span class="footer-links">
+        <a href="/editor/">Editor</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Service</a>
+        <a href="https://github.com/ferraridavide/paged">GitHub</a>
+      </span>
+    </footer>
   </body>
 </html>

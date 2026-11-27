@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { execSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -15,6 +16,16 @@ function commitHash(): string {
 
 export default defineConfig({
   plugins: [react()],
+  // Two pages: the home page at / and the editor at /editor/.
+  appType: "mpa",
+  build: {
+    rollupOptions: {
+      input: {
+        home: fileURLToPath(new URL("index.html", import.meta.url)),
+        editor: fileURLToPath(new URL("editor/index.html", import.meta.url)),
+      },
+    },
+  },
   define: {
     __COMMIT_HASH__: JSON.stringify(commitHash()),
   },

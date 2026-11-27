@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paged Editor</title>
+    <link rel="canonical" href="https://paged.davide.im/editor/" />
+    <meta name="description" content="Paged Editor is an open-source editor for print documents that runs in your browser. Every element on the page is a React component you can style with CSS, and you can write your own." />
+    <meta property="og:title" content="Paged Editor" />
+    <meta property="og:description" content="Write print documents on real pages, with React components as your building blocks." />
+    <!--
+      Custom components and CDN packages import these bare specifiers; they
+      resolve to the editor's own instances (see scripts/gen-runtime.mjs).
+    -->
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "/runtime/react.js",
+          "react/jsx-runtime": "/runtime/react-jsx-runtime.js",
+          "react-dom": "/runtime/react-dom.js",
+          "@paged/sdk": "/runtime/sdk.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <!-- Shown until the editor loads: React replaces everything inside #root. -->
+    <div id="root">
+      <main style="max-width: 640px; margin: 96px auto; padding: 0 20px; font: 16px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1c1917">
+        <h1 style="font-size: 32px; margin: 0 0 8px">Paged Editor</h1>
+        <p style="margin: 0 0 16px; color: #57534e">
+          Paged Editor is an open-source editor for print documents that runs in your browser. Every
+          element on the page is a React component: use the built-in ones or write your own, style them
+          with CSS, and print or save to PDF. Documents can be opened from and saved to Google Drive.
+        </p>
+        <p style="margin: 0; font-size: 14px">
+          <a href="/privacy.html" style="color: #4f46e5">Privacy Policy</a> ·
+          <a href="/terms.html" style="color: #4f46e5">Terms of Service</a> ·
+          <a href="https://github.com/ferraridavide/paged" style="color: #4f46e5">Source code</a>
+        </p>
+      </main>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

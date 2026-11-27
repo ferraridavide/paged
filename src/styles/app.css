@@ -280,6 +280,8 @@ body.is-resizing iframe, body.is-resizing .canvas { pointer-events: none; }
 }
 .status-dim { color: var(--muted); }
 .status-spacer { flex: 1; }
+.status-about a { color: inherit; }
+.status-about a:hover { color: var(--accent); }
 .status-button {
   display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 7px; border: 0; border-radius: 10px;
   background: var(--hover); color: var(--text-2); font-size: 11.5px; cursor: pointer;
