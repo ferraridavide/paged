@@ -182,7 +182,7 @@ export async function compileComponent(comp: ComponentSource): Promise<CompileRe
   let mod: { default?: unknown };
   try {
     const entry = await moduleUrl(comp.entry);
-    mod = await import(/* @vite-ignore */ entry);
+      mod = await import(/* @vite-ignore */ entry);
   } catch (err) {
     created.forEach((u) => URL.revokeObjectURL(u));
     if (err instanceof CompileError) throw err;
@@ -229,7 +229,7 @@ function defaultFor(field: FieldSpec) {
 }
 
 function toFieldDef(key: string, f: FieldSpec): FieldDef<any> {
-  const base = { key, label: f.label ?? key[0].toUpperCase() + key.slice(1), help: f.help };
+  const base = { key, label: f.label ?? key[0].toUpperCase() + key.slice(1), help: f.help, default: defaultFor(f) };
   switch (f.kind) {
     case "number":
       return { ...base, kind: "number", min: f.min, max: f.max };
@@ -252,12 +252,17 @@ function toDefinition(comp: ComponentSource, spec: ElementSpec, css: string): El
 
   // The element's root carries data-node-id and per-element styles; the
   // author's markup goes inside it, with the SDK context for <Editable>.
+  // Fields missing from an element (added to the component after it was
+  // inserted, or left out of a hand-written document) get their defaults.
+  const defaults = Object.fromEntries(fields.map(([k, f]) => [k, defaultFor(f)]));
+
   function CustomElement({ node, mode, root, update, page }: ElementComponentProps<Record<string, any>>) {
     const ctx = useMemo(() => ({ node, mode, update, page }), [node, mode, update, page]);
+    const props = useMemo(() => ({ ...defaults, ...node.props }), [node.props]);
     return (
       <div {...root}>
         <ElementContext.Provider value={ctx}>
-          <Render props={node.props} mode={mode} />
+          <Render props={props} mode={mode} />
         </ElementContext.Provider>
       </div>
     );

@@ -12,7 +12,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, "public/runtime");
 mkdirSync(out, { recursive: true });
 
-const SDK_EXPORTS = ["defineElement", "Editable", "useElement", "useElementState", "usePageInfo"];
+const SDK_EXPORTS = ["defineElement", "Editable", "useElement", "useElementState", "usePageInfo", "useDocument"];
 
 const modules = {
   "react.js": ["react", Object.keys(require("react"))],

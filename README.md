@@ -72,8 +72,10 @@ pnpm dev
 ```
 
 Open the URL Vite prints and add `/editor/` (the home page is at `/`). The first time, the editor
-loads the **Quarterly Report** sample: three pages with formatted text, a table and four custom
-components (Callout, Chart, QR code, 3D scene).
+loads the sample, **Can your word processor do this?**: twelve pages of numbered "dares", each a
+custom component doing something a word processor can't (a 3D globe, a WebGL fractal, sheet music,
+live weather data, a signature pad, a flip-book in the page corner…). Scroll through it in Edit mode
+once: components that draw at runtime save their print still when they first appear.
 
 **3. Try the basics**
 
@@ -208,15 +210,51 @@ state and render that in print mode. The sample **3D scene** component (three.js
 orbit/pan/zoom in Edit mode, camera and a JPEG still saved on release, the still shown in Preview and
 print.
 
+### Reading the document
+
+`useDocument()` gives a component a read-only view of the whole document, and re-renders it when the
+document or its layout changes:
+
+```ts
+const doc = useDocument();
+doc.outline;                 // [{ id, text, level, page }]: headings and the page each starts on
+doc.pages;                   // total pages
+doc.stats;                   // { words, characters, elements, components }
+doc.find("regions");         // the first element with this class (or this id): { type, props, state, text }
+```
+
+The sample uses it for a table of contents with page numbers, live word counts, a chart that reads
+its data from a table elsewhere in the document, and a halftone computed from the 3D scene's saved
+still.
+
 ### Sample components
 
-- **Callout**: a multi-file component (module, CSS, SVG asset).
-- **Chart**: [Chart.js](https://www.chartjs.org) bar, line, area, pie and doughnut charts from
-  comma/tab-separated data in the sidebar. Chart.js draws on a canvas, which static print markup
-  can't carry, so the chart is drawn synchronously to an off-screen canvas at 3× resolution and shown
-  as an image: the same box in Edit, Preview and print, cached per settings.
-- **QR code**: `react-qr-code` from esm.sh.
-- **3D scene**: three.js, orbit in Edit mode; print uses the saved still.
+The sample document's components live in [`src/model/sample/components/`](src/model/sample/components),
+one file each, and are saved inside the document like any other.
+
+| Component | What it shows | Made with |
+|---|---|---|
+| Cover | Full-bleed generative cover (contours, flow field, Truchet tiles) from a seed, with live stats | SVG, `useDocument()` for the page size |
+| Flip-book | A wireframe solid that turns a little on every page, in the footer corner; or a strip of every frame | `usePageInfo()` |
+| Progress footer | The current part and a bar through the document | `usePageInfo().chapter` |
+| Thumb tabs | Dictionary-style tabs on the page edge, one position per part | `useDocument().outline` |
+| Contents, Document stats | Table of contents with page numbers; live page, word and component counts | `useDocument()` |
+| Globe | Drag-to-spin orthographic globe with great-circle routes, vector in print | d3-geo, topojson-client, world-atlas |
+| 3D scene | Orbit in Edit mode; print uses the saved still | three.js |
+| Halftone | A vector halftone of another element's image (the 3D scene's still) | `useDocument().find()`, canvas sampling |
+| Fractal | Mandelbrot explorer: pan, zoom; print uses the saved still | WebGL fragment shader |
+| Score | Engraved sheet music from ABC notation, with playback in Edit mode | abcjs |
+| Diagram | Mermaid text to SVG, saved for print | mermaid |
+| Molecule | Structures, formulas and molar masses from SMILES strings | smiles-drawer |
+| Weather | Daily temperatures fetched from Open-Meteo and charted; the data is saved with the document | `fetch`, Observable Plot |
+| Chart | Chart.js charts, from sidebar data or linked to a table by its class | chart.js |
+| Signature | Draw a signature with mouse, pen or touch; strokes print as vector ink | perfect-freehand |
+| Callout, QR code | A multi-file component (module, CSS, SVG asset); a QR code | react-qr-code |
+
+Chart.js draws on a canvas, which static print markup can't carry, so the chart is drawn
+synchronously to an off-screen canvas at 3× resolution and shown as an image: the same box in Edit,
+Preview and print, cached per settings. The landscape spread ("This page is just CSS") uses no
+component at all: a section with its own Page CSS, `shape-outside`, `column-count` and gradient text.
 
 ## How it works
 
@@ -279,7 +317,20 @@ Section settings still hide the header/footer, or skip them on a section's first
 
 Zone elements don't take part in pagination, and content taller than the margin spills over the
 body: make the margin bigger. Custom components can read the page they're drawn on with
-`usePageInfo()` (`{ number, total }`, undefined while measured).
+`usePageInfo()` (undefined while measured):
+
+```ts
+{
+  number, total,                      // 1-based page number, page count
+  section: { index, page, pages },    // the section, and this page's place in it
+  chapter: { id, title, number },     // the latest top-level heading on or before this page
+  chapters,                           // how many top-level headings there are
+}
+```
+
+A zone element is positioned inside its margin box; to draw against the page edge instead (thumb
+tabs, a corner flip-book), give its block `position: static` in the component's CSS, as the sample's
+Thumb tabs and Flip-book do.
 
 ### Formatted text (inline runs)
 

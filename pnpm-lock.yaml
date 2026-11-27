@@ -48,6 +48,9 @@ importers:
       vite:
         specifier: ^8.3.8
         version: 8.3.8(@types/node@22.20.7)
+      world-atlas:
+        specifier: 2.0.2
+        version: 2.0.2
 
 packages:
 
@@ -478,6 +481,9 @@ packages:
       yaml:
         optional: true
 
+  world-atlas@2.0.2:
+    resolution: {integrity: sha512-IXfV0qwlKXpckz1FhwXVwKRjiIhOnWttOskm5CtxMsjgE/MXAYRHWJqgXOpM8IkcPBoXnyTU5lFHcYa5ChG0LQ==}
+
 snapshots:
 
   '@emnapi/core@2.0.0-beta.2':
@@ -798,3 +804,5 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.20.7
       fsevents: 2.3.3
+
+  world-atlas@2.0.2: {}

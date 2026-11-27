@@ -4,6 +4,7 @@ import * as ReactDOM from "react-dom";
 import { createRoot } from "react-dom/client";
 import * as JsxRuntime from "react/jsx-runtime";
 import * as sdk from "./custom/sdk";
+import { guardAmdDefine } from "./custom/amd";
 import App from "./App";
 import { DriveProvider } from "./drive/DriveContext";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -20,6 +21,9 @@ import "./styles/app.css";
   "react-dom": ReactDOM,
   "@paged/sdk": sdk,
 };
+
+// Before Monaco's AMD loader can load: keep its global `define` from capturing UMD code in components.
+guardAmdDefine();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

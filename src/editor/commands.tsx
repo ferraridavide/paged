@@ -49,6 +49,7 @@ import { useDrive } from "../drive/DriveContext";
 import { ELEMENTS, GROUPS, getCompileStatus, getDefinition, useRegistryVersion } from "../elements/registry";
 import { newId } from "../model/ids";
 import { packDocument, readDocumentFile } from "../model/pdoc";
+import { blankDocument } from "../model/blank";
 import { sampleDocument } from "../model/sample";
 import { useEditor } from "../model/store";
 import { customType, type Zone } from "../model/types";
@@ -125,7 +126,7 @@ export function useCommands() {
       icon: FilePlus,
       run: () => {
         if (!confirm("Start a new, empty document? The current one is replaced (it stays in undo history).")) return;
-        dispatch({ type: "load", doc: { ...sampleDocument(), title: "Untitled", elements: [], components: [] } });
+        dispatch({ type: "load", doc: blankDocument() });
         drive.unlink();
         ui.openStudio(null);
       },

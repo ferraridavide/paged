@@ -26,8 +26,15 @@ export interface FragmentInfo {
 }
 
 export interface PageInfo {
+  /** 1-based page number in the document. */
   number: number;
   total: number;
+  /** The section this page belongs to, and where the page falls in it (1-based). */
+  section?: { index: number; page: number; pages: number };
+  /** The latest top-level heading starting on or before this page (1-based number). */
+  chapter?: { id: string; title: string; number: number };
+  /** How many top-level headings the document has. */
+  chapters?: number;
 }
 
 /**
@@ -59,7 +66,13 @@ export interface ElementComponentProps<P> {
   insertTextAfter?: () => void;
 }
 
-type FieldBase<P> = { key: keyof P & string; label: string; help?: string };
+type FieldBase<P> = {
+  key: keyof P & string;
+  label: string;
+  help?: string;
+  /** Shown (and used) when the element has no value for this field. */
+  default?: unknown;
+};
 
 /** Parameters shown in the inspector's Content tab. */
 export type FieldDef<P> =

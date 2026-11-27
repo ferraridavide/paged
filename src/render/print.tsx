@@ -5,6 +5,7 @@ import type { PageLayout } from "../layout/paginate";
 import { sectionBox, sectionsCss, sectionsOf } from "../layout/sections";
 import { baseTypography, declarations, elementsCss, scopedCustomCss } from "../model/css";
 import type { DocumentModel } from "../model/types";
+import { buildOutline, buildPageInfos, LayoutContext } from "../layout/pageInfo";
 import { DocContext } from "./DocContext";
 import { Page } from "./PagedDocument";
 
@@ -16,8 +17,11 @@ export function renderPagesHtml(doc: DocumentModel, layout: PageLayout[]) {
   const byId = new Map(doc.elements.map((n) => [n.id, n]));
   const indexOf = new Map(doc.elements.map((n, i) => [n.id, i]));
   const sections = sectionsOf(doc);
+  const outline = buildOutline(doc, layout);
+  const infos = buildPageInfos(layout, outline);
   return renderToStaticMarkup(
     <DocContext.Provider value={doc}>
+      <LayoutContext.Provider value={{ pages: layout.length, outline }}>
       <div className="pd-pages">
         {layout.map((page, i) => (
           <Page
@@ -27,6 +31,7 @@ export function renderPagesHtml(doc: DocumentModel, layout: PageLayout[]) {
             visible
             number={i + 1}
             total={layout.length}
+            info={infos[i]}
             doc={doc}
             byId={byId}
             indexOf={indexOf}
@@ -36,6 +41,7 @@ export function renderPagesHtml(doc: DocumentModel, layout: PageLayout[]) {
           />
         ))}
       </div>
+      </LayoutContext.Provider>
     </DocContext.Provider>,
   );
 }

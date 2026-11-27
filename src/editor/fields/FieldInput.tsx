@@ -1,20 +1,56 @@
-import { useRef } from "react";
+import { Component, useRef, type ReactNode } from "react";
 import type { FieldDef } from "../../elements/types";
 import type { PageOverrides } from "../../model/types";
 import { SectionField } from "./SectionField";
 import { applyPlainEdit, runsText, type Run } from "../../model/runs";
 import { ColorInput, Row, Select, TextInput } from "./inputs";
 
-/** Renders one element parameter from its FieldDef. */
-export function FieldInput({
-  field,
-  value,
-  onChange,
-}: {
+type FieldProps = {
   field: FieldDef<any>;
   value: unknown;
   onChange: (v: unknown) => void;
-}) {
+};
+
+/**
+ * Renders one element parameter from its FieldDef. A missing value shows the
+ * field's default (what the element renders with). A value of the wrong shape
+ * (a hand-edited document, a component whose fields changed) breaks only this
+ * field, not the editor.
+ */
+export function FieldInput({ field, value, onChange }: FieldProps) {
+  return (
+    <FieldBoundary label={field.label} value={value}>
+      <FieldControl field={field} value={value ?? field.default} onChange={onChange} />
+    </FieldBoundary>
+  );
+}
+
+class FieldBoundary extends Component<
+  { label: string; value: unknown; children: ReactNode },
+  { error: Error | null; value: unknown }
+> {
+  state = { error: null as Error | null, value: this.props.value };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  static getDerivedStateFromProps(props: { value: unknown }, state: { value: unknown }) {
+    // A new value (undo, another element) gets a fresh chance.
+    return props.value !== state.value ? { error: null, value: props.value } : null;
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <Row label={this.props.label}>
+        <span className="row-help is-error">Can't edit this value here: {this.state.error.message}</span>
+      </Row>
+    );
+  }
+}
+
+function FieldControl({ field, value, onChange }: FieldProps) {
   const help = field.help;
 
   switch (field.kind) {
@@ -48,7 +84,7 @@ export function FieldInput({
           <textarea
             className="input"
             rows={5}
-            value={(value as string[]).join("\n")}
+            value={(Array.isArray(value) ? value : []).join("\n")}
             onChange={(e) => onChange(e.target.value.split("\n"))}
           />
         </Row>
@@ -95,7 +131,7 @@ export function FieldInput({
     case "image":
       return <ImageField label={field.label} value={String(value ?? "")} onChange={onChange} />;
     case "table":
-      return <TableSizeField label={field.label} rows={value as string[][]} onChange={onChange} />;
+      return <TableSizeField label={field.label} rows={Array.isArray(value) ? (value as string[][]) : [[""]]} onChange={onChange} />;
   }
 }
 

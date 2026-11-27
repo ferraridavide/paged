@@ -65,14 +65,66 @@ declare module "@paged/sdk" {
     node: { id: string; type: string; props: Record<string, any> };
     mode: "edit" | "print";
     update(patch: Record<string, unknown>): void;
-    page?: { number: number; total: number };
+    page?: PageInfo;
   };
+
+  export interface PageInfo {
+    /** 1-based page number in the document. */
+    number: number;
+    total: number;
+    /** The section this page belongs to, and where the page falls in it (1-based). */
+    section?: { index: number; page: number; pages: number };
+    /** The latest top-level heading (h1) starting on or before this page. number is 1-based. */
+    chapter?: { id: string; title: string; number: number };
+    /** How many top-level headings the document has. */
+    chapters?: number;
+  }
 
   /**
    * The page this copy of the element is on. Header/footer elements are drawn
    * once per page. Undefined while the paginator measures the element, so
    * keep the element's size the same either way.
    */
-  export function usePageInfo(): { number: number; total: number } | undefined;
+  export function usePageInfo(): PageInfo | undefined;
+
+  /** An element as other elements see it: read-only. */
+  export interface DocumentElement {
+    id: string;
+    type: string;
+    props: Readonly<Record<string, any>>;
+    state: Readonly<Record<string, any>>;
+    classes: readonly string[];
+    zone?: "header" | "footer";
+    /** Its text, for built-in text elements (heading, text, list, table). */
+    text: string;
+  }
+
+  export interface OutlineEntry {
+    id: string;
+    text: string;
+    level: number;
+    /** 1-based page the heading starts on; undefined before the first layout. */
+    page?: number;
+  }
+
+  export interface DocumentView {
+    title: string;
+    page: Record<string, any>;
+    /** Total pages, once laid out (0 before the first layout). */
+    pages: number;
+    /** Every heading, with the page it starts on. */
+    outline: OutlineEntry[];
+    elements: readonly DocumentElement[];
+    stats: { words: number; characters: number; elements: number; components: number };
+    /** The first element with this class (added in the inspector), or this id. */
+    find(classOrId: string): DocumentElement | undefined;
+  }
+
+  /**
+   * The whole document, read-only: other elements (link a chart to a table by
+   * its class), the outline with page numbers, and word counts. Re-renders
+   * when the document or its layout changes.
+   */
+  export function useDocument(): DocumentView;
 }
 `;

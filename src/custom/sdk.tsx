@@ -3,9 +3,12 @@
  * module, re-exported through public/runtime/sdk.js, so components share the
  * editor's React and contexts.
  */
-import { createContext, createElement, useContext, type ComponentType, type HTMLAttributes } from "react";
+import { createContext, createElement, useContext, useMemo, type ComponentType, type HTMLAttributes } from "react";
 import { EditableText } from "../elements/EditableText";
-import type { ElementNode, Mode } from "../model/types";
+import type { PageInfo } from "../elements/types";
+import { LayoutContext, plainText, type OutlineEntry } from "../layout/pageInfo";
+import type { ElementNode, Mode, PageSettings } from "../model/types";
+import { DocContext } from "../render/DocContext";
 
 export type FieldKind = "text" | "textarea" | "number" | "select" | "boolean" | "color" | "image" | "lines";
 
@@ -52,7 +55,7 @@ interface ElementContextValue {
   mode: Mode;
   update: (patch: Record<string, unknown>) => void;
   /** The page being rendered; undefined while the paginator measures the element. */
-  page?: { number: number; total: number };
+  page?: PageInfo;
 }
 
 export const ElementContext = createContext<ElementContextValue | null>(null);
@@ -65,12 +68,87 @@ export function useElement() {
 }
 
 /**
- * The page this copy of the element is on: `{ number, total }`. Elements in
- * a header or footer are drawn on every page, once per page. Undefined while
- * the paginator measures the element (keep its size the same either way).
+ * The page this copy of the element is on: `{ number, total }`, plus the
+ * section it belongs to and the chapter (top-level heading) it falls in.
+ * Elements in a header or footer are drawn on every page, once per page.
+ * Undefined while the paginator measures the element (keep its size the same
+ * either way).
  */
 export function usePageInfo() {
   return useElement().page;
+}
+
+/** An element as other elements see it: read-only. */
+export interface DocumentElement {
+  id: string;
+  type: string;
+  props: Readonly<Record<string, any>>;
+  state: Readonly<Record<string, any>>;
+  classes: readonly string[];
+  zone?: "header" | "footer";
+  /** Its text, for built-in text elements (heading, text, list, table). */
+  text: string;
+}
+
+export interface DocumentView {
+  title: string;
+  page: PageSettings;
+  /** Total pages, once laid out (0 before the first layout). */
+  pages: number;
+  /** Every heading with the page it starts on. */
+  outline: OutlineEntry[];
+  elements: readonly DocumentElement[];
+  stats: { words: number; characters: number; elements: number; components: number };
+  /** The first element with this class, or this id. */
+  find(classOrId: string): DocumentElement | undefined;
+}
+
+const EMPTY: DocumentView = {
+  title: "",
+  page: {} as PageSettings,
+  pages: 0,
+  outline: [],
+  elements: [],
+  stats: { words: 0, characters: 0, elements: 0, components: 0 },
+  find: () => undefined,
+};
+
+/**
+ * The whole document, read-only: other elements (to link a chart to a table,
+ * say), the outline with page numbers, and word counts. Elements using it
+ * re-render when the document or its layout changes.
+ */
+export function useDocument(): DocumentView {
+  const doc = useContext(DocContext);
+  const layout = useContext(LayoutContext);
+  return useMemo(() => {
+    if (!doc) return EMPTY;
+    const elements: DocumentElement[] = doc.elements.map((n) => ({
+      id: n.id,
+      type: n.type,
+      props: n.props,
+      state: n.state ?? {},
+      classes: n.classes ?? [],
+      zone: n.zone,
+      text: plainText(n),
+    }));
+    const body = elements.filter((e) => !e.zone).map((e) => e.text).join(" ");
+    const words = body.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu)?.length ?? 0;
+    return {
+      title: doc.title,
+      page: doc.page,
+      pages: layout.pages,
+      outline: layout.outline.length ? layout.outline : elements.filter((e) => e.type === "heading" && !e.zone).map((e) => ({ id: e.id, text: e.text, level: Number(e.props.level ?? 1) })),
+      elements,
+      stats: {
+        words,
+        characters: body.replace(/\s+/g, "").length,
+        elements: elements.filter((e) => !e.zone).length,
+        components: doc.components.length,
+      },
+      find: (key: string) => elements.find((e) => e.classes.includes(key)) ?? elements.find((e) => e.id === key),
+    };
+  }, [doc, layout]);
 }
 
 /**

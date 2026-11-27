@@ -8,7 +8,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useUi } from "../editor/ui";
 import { packDocument, PDOC_MIME, readDocumentBytes } from "../model/pdoc";
-import { sampleDocument } from "../model/sample";
+import { blankDocument } from "../model/blank";
 import { useEditor } from "../model/store";
 import type { DocumentModel } from "../model/types";
 import {
@@ -274,7 +274,7 @@ export function DriveProvider({ children }: { children: ReactNode }) {
       return;
     }
     // "New" in Drive: an empty document that saves into that folder.
-    const doc = { ...sampleDocument(), title: "Untitled", elements: [], components: [] };
+    const doc = blankDocument();
     load(doc, { name: fileName(doc), mimeType: PDOC_MIME, folderId: request.folderId, canEdit: true });
   }, [confirmReplace, launch, load, openById, run]);
 

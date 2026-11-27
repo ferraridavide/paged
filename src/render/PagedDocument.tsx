@@ -9,6 +9,8 @@ import { useUi } from "../editor/ui";
 import { useContextMenu, useMenu } from "../ui/Menu";
 import { restoreCaret, caretRecord } from "../layout/caret";
 import { emptyPage, paginate, reconcile, type PageLayout } from "../layout/paginate";
+import { buildOutline, buildPageInfos, LayoutContext } from "../layout/pageInfo";
+import type { PageInfo } from "../elements/types";
 import { sectionAttrs, sectionBox, sectionsCss, sectionsOf, zoneInsertIndex, type Section } from "../layout/sections";
 import { elementsCss, scopedCustomCss } from "../model/css";
 import { useEditor } from "../model/store";
@@ -48,6 +50,11 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
   const flowNodes = useMemo(() => doc.elements.filter((n) => !n.zone), [doc.elements]);
   const byId = useMemo(() => new Map(doc.elements.map((n) => [n.id, n])), [doc.elements]);
   const indexOf = useMemo(() => new Map(doc.elements.map((n, i) => [n.id, i])), [doc.elements]);
+  // What elements can know about their page and the document (usePageInfo, useDocument).
+  const outline = useMemo(() => buildOutline(doc, pages), [doc, pages]);
+  const layoutInfo = useMemo(() => ({ pages: pages.length, outline }), [pages.length, outline]);
+  const infosRef = useRef<PageInfo[]>([]);
+  const infos = useMemo(() => (infosRef.current = buildPageInfos(pages, outline, infosRef.current)), [pages, outline]);
 
   // ---- Layout ----
 
@@ -340,6 +347,7 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
       )}
       <InsertTextAfterContext.Provider value={mode === "edit" ? insertTextAfter : null}>
         <DocContext.Provider value={doc}>
+        <LayoutContext.Provider value={layoutInfo}>
           {sections.map((section, i) => {
             const attrs = sectionAttrs(section, "pd-measure");
             const box = sectionBox(section);
@@ -371,6 +379,7 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
                 visible={visible.has(i)}
                 number={i + 1}
                 total={pages.length}
+                info={infos[i]}
                 doc={doc}
                 byId={byId}
                 indexOf={indexOf}
@@ -382,6 +391,7 @@ export const PagedDocument = memo(function PagedDocument({ mode, pagesRef, onLay
               />
             ))}
           </div>
+        </LayoutContext.Provider>
         </DocContext.Provider>
       </InsertTextAfterContext.Provider>
     </div>
@@ -406,6 +416,8 @@ export interface PageProps {
   visible: boolean;
   number: number;
   total: number;
+  /** Page, section and chapter info for usePageInfo(); defaults to { number, total }. */
+  info?: PageInfo;
   doc: DocumentModel;
   byId: Map<string, ElementNode>;
   indexOf: Map<string, number>;
@@ -417,11 +429,12 @@ export interface PageProps {
   empty?: boolean;
 }
 
-export function Page({ page, section, visible, number, total, doc, byId, indexOf, mode, selectedId, dropIndex, onUpdate, empty }: PageProps) {
+export function Page({ page, section, visible, number, total, info: pageInfo, doc, byId, indexOf, mode, selectedId, dropIndex, onUpdate, empty }: PageProps) {
   const box = sectionBox(section);
   const { width, height, margin: m } = box;
   const attrs = sectionAttrs(section, "pd-page");
-  const info = useMemo(() => ({ number, total }), [number, total]);
+  const fallback = useMemo(() => ({ number, total }), [number, total]);
+  const info = pageInfo ?? fallback;
   const lastIndex = doc.elements.length;
   const style: React.CSSProperties = {
     ...attrs.style,

@@ -21,7 +21,11 @@
 .pd-page {
   position: relative;
   box-sizing: border-box;
+  /* clip, not hidden: a hidden overflow can still be scrolled, and focusing
+     text in something that overflows the page (a full-bleed cover) would
+     shift the whole page's content. */
   overflow: hidden;
+  overflow: clip;
   background: white;
 }
 .pd-content { position: absolute; display: flow-root; }
@@ -42,7 +46,10 @@
   position: absolute;
   top: 0;
   left: 0;
-  visibility: hidden;
+  /* Not visibility: hidden. It's inherited by SVG markers and masks defined
+     in here, and an id an element repeats on the pages (an arrowhead marker)
+     resolves to this first copy, so the page would draw it invisibly. */
+  opacity: 0;
   pointer-events: none;
   contain: layout style;
 }
@@ -160,4 +167,7 @@
 /* Elements in a page margin: no outer margins against the page edge or the body. */
 .pd-zone > [data-node-id],
 .pd-zone > .ed-block > [data-node-id] { margin-block: 0; }
-.pd-zone > * + * { margin-top: 2mm; }
+/* Edit mode wraps each element in an .ed-block, Preview and print don't: the
+   second selector outranks the no-margin rule above, so both get the gap. */
+.pd-zone > * + *,
+.pd-zone > [data-node-id] + [data-node-id] { margin-top: 2mm; }

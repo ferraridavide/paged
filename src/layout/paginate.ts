@@ -283,7 +283,11 @@ function paginateNodes(
     let from: number | undefined;
     for (let guard = 0; guard < 10_000; guard++) {
       const continued = from !== undefined;
-      if (bottom - start <= pageHeight + EPSILON) {
+      // A page break (or an empty element) stays at the end of the page it
+      // follows, even when the previous block's margin pushes it past the
+      // bottom: otherwise a break after a full page leaves an empty page.
+      const trailing = (node.type === "page-break" || rect.height < EPSILON) && current.length > 0 && !continued;
+      if (bottom - start <= pageHeight + EPSILON || trailing) {
         current.push({ nodeId: node.id, from, continued, continues: false });
         break;
       }
@@ -305,11 +309,18 @@ function paginateNodes(
         break;
       }
 
-      // Move to the next page, taking a preceding heading along with it.
-      const prev = current[current.length - 1];
-      const prevDef = getDefinition(doc.elements.find((n) => n.id === prev.nodeId)?.type ?? "");
-      const carry =
-        current.length > 1 && !prev.continued && !prev.continues && prevDef?.keepWithNext ? [current.pop()!] : [];
+      // Move to the next page, taking along the blocks before it that keep
+      // with the next one (headings, or CSS break-after: avoid), as long as
+      // something stays behind on this page.
+      const carry: Fragment[] = [];
+      while (current.length - carry.length > 1) {
+        const prev = current[current.length - 1 - carry.length];
+        const prevNode = doc.elements.find((n) => n.id === prev.nodeId);
+        const keeps = getDefinition(prevNode?.type ?? "")?.keepWithNext || prevNode?.style["break-after"] === "avoid";
+        if (prev.continued || prev.continues || !keeps) break;
+        carry.unshift(prev);
+      }
+      current.splice(current.length - carry.length);
       newPage(carry.length ? topOf(carry[0].nodeId) : top);
       current.push(...carry);
     }
