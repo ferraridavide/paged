@@ -1,0 +1,82 @@
+<!doctype html>
+<!--
+  Paged Editor social preview (Open Graph / Twitter card), 1200x630. Rendered to
+  public/og-image.png with headless Chrome at a 1200x630 window and device scale factor 1:
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars \
+      --force-device-scale-factor=1 --window-size=1200,630 \
+      --screenshot=public/og-image.png file://$PWD/docs/assets/og-image.html
+  Link previews are often shown 400-600px wide, so the text is large and kept in the left half.
+  Brand: the ¶ mark and indigo gradient from .app-mark in src/styles/app.css, like banner.html.
+  The screenshot is editor.png, next to this file.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+  body {
+    position: relative; width: 1200px; height: 630px; overflow: hidden; box-sizing: border-box;
+    background:
+      radial-gradient(ellipse 520px 420px at 930px 560px, rgba(129, 140, 248, 0.5), transparent 70%),
+      radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1.2px) 0 0 / 22px 22px,
+      linear-gradient(160deg, #312e81 0%, #1e1b4b 100%);
+    color: white;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .text {
+    position: absolute; left: 72px; top: 72px; bottom: 64px; width: 500px;
+    display: flex; flex-direction: column;
+  }
+  .title { display: flex; align-items: center; gap: 16px; }
+  .mark {
+    display: grid; place-items: center; width: 56px; height: 56px; border-radius: 14px;
+    background: linear-gradient(160deg, #6366f1, #4338ca); font-size: 31px; font-weight: 600;
+    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.18), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+  .name { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
+  h1 {
+    margin: 48px 0 0; font-size: 56px; line-height: 1.08; font-weight: 700; letter-spacing: -0.03em;
+  }
+  h1 em { font-style: normal; color: #a5b4fc; }
+  .lead { margin: 22px 0 0; font-size: 24px; line-height: 1.4; color: #c7d2fe; }
+  .url {
+    margin-top: auto; font-size: 20px; font-weight: 500; color: #e0e7ff;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .url::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%; background: #818cf8;
+    box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.25);
+  }
+  .window {
+    position: absolute; left: 640px; top: 84px; width: 760px; height: 640px;
+    border-radius: 14px; overflow: hidden; background: #fff;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18), 0 30px 80px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+  }
+  .bar {
+    height: 34px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 14px;
+    background: #f4f4f5; border-bottom: 1px solid #e4e4e7;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  /* editor.png is 2880x1800; the left edge keeps the app mark and menu bar in view. */
+  .shot { flex: 1; background: url("editor.png") 0 0 / 1040px auto no-repeat; }
+</style>
+</head>
+<body>
+  <div class="text">
+    <div class="title"><span class="mark">¶</span><span class="name">Paged Editor</span></div>
+    <h1>Print documents built from <em>React components</em></h1>
+    <p class="lead">An open-source editor that runs in your browser. Style with CSS, print or save to PDF.</p>
+    <div class="url">paged.davide.im</div>
+  </div>
+  <div class="window">
+    <div class="bar">
+      <span class="dot" style="background:#ff5f57"></span>
+      <span class="dot" style="background:#febc2e"></span>
+      <span class="dot" style="background:#28c840"></span>
+    </div>
+    <div class="shot"></div>
+  </div>
+</body>
+</html>
