@@ -1,8 +1,10 @@
-import { RotateCcw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Minus, Plus, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Ref } from "react";
 import documentCss from "../styles/document.css?raw";
 import { componentsCss, getCompileStatus, getDefinition, useRegistryVersion } from "../elements/registry";
 import { FieldInput } from "../editor/fields/FieldInput";
+import { ZOOM_STEPS } from "../editor/ui";
+import { useMenu } from "../ui/Menu";
 import { baseTypography, pageDimensions, scopedCustomCss, toReactStyle } from "../model/css";
 import type { ComponentSource, DocumentModel, ElementNode, Mode } from "../model/types";
 import { customType } from "../model/types";
@@ -40,11 +42,23 @@ type PreviewProps = ReturnType<typeof usePreviewProps>;
  * Storybook-style canvas: the component alone, at the document's content
  * width and typography, in print or edit mode. Never touches the document.
  */
-export function PreviewPane({ comp, doc, preview }: { comp: ComponentSource; doc: DocumentModel; preview: PreviewProps }) {
+export function PreviewPane({
+  comp,
+  doc,
+  preview,
+  sectionRef,
+}: {
+  comp: ComponentSource;
+  doc: DocumentModel;
+  preview: PreviewProps;
+  sectionRef?: Ref<HTMLElement>;
+}) {
   const type = customType(comp.id);
   const status = getCompileStatus(type);
   const [mode, setMode] = useState<Mode>("print");
   const [fullWidth, setFullWidth] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const menu = useMenu();
   const boxRef = useRef<HTMLDivElement>(null);
   const [heightMm, setHeightMm] = useState<number | null>(null);
 
@@ -65,21 +79,26 @@ export function PreviewPane({ comp, doc, preview }: { comp: ComponentSource; doc
   const contentWidth = `calc(${width}mm - ${m.left} - ${m.right})`;
   const contentHeight = `calc(${height}mm - ${m.top} - ${m.bottom})`;
 
-  // How tall the component renders, compared with a page.
+  const zoomBy = (dir: 1 | -1) => {
+    const next = dir > 0 ? ZOOM_STEPS.find((z) => z > zoom + 0.001) : [...ZOOM_STEPS].reverse().find((z) => z < zoom - 0.001);
+    if (next) setZoom(next);
+  };
+
+  // How tall the component renders, compared with a page (at 100% zoom).
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => {
       const target = el.querySelector<HTMLElement>("[data-node-id]");
-      setHeightMm(target ? target.getBoundingClientRect().height / PX_PER_MM : null);
+      setHeightMm(target ? target.getBoundingClientRect().height / zoom / PX_PER_MM : null);
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [zoom]);
   const pageContentMm = height - parseFloat(m.top) - parseFloat(m.bottom);
 
   return (
-    <section className="studio-preview">
+    <section className="studio-preview" ref={sectionRef}>
       <div className="studio-pane-header">
         <span>Preview</span>
         <span className="segmented">
@@ -102,7 +121,7 @@ export function PreviewPane({ comp, doc, preview }: { comp: ComponentSource; doc
       <div className="studio-canvas">
         <div
           className={`pd-doc pd-${mode}`}
-          style={{ ...toReactStyle(baseTypography(doc.page)), ["--pd-content-height" as string]: contentHeight }}
+          style={{ ...toReactStyle(baseTypography(doc.page)), zoom, ["--pd-content-height" as string]: contentHeight }}
         >
           <style>{documentCss}</style>
           <style>{componentsCss()}</style>
@@ -128,17 +147,45 @@ export function PreviewPane({ comp, doc, preview }: { comp: ComponentSource; doc
           </>
         )}
         <span className="spacer" />
-        {doc.page.size} {doc.page.orientation}, typography from the document
+        <span className="studio-preview-footer-note">
+          {doc.page.size} {doc.page.orientation}, typography from the document
+        </span>
+        <div className="zoom-control">
+          <button onClick={() => zoomBy(-1)} disabled={zoom <= ZOOM_STEPS[0]} title="Zoom out">
+            <Minus size={12} />
+          </button>
+          <button
+            className="zoom-value"
+            title="Zoom"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              menu.open({
+                x: r.left,
+                y: r.top - 8 - ZOOM_STEPS.length * 28,
+                items: ZOOM_STEPS.map((z) => ({
+                  label: `${Math.round(z * 100)}%`,
+                  checked: Math.abs(zoom - z) < 0.001,
+                  onSelect: () => setZoom(z),
+                })),
+              });
+            }}
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button onClick={() => zoomBy(1)} disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]} title="Zoom in">
+            <Plus size={12} />
+          </button>
+        </div>
       </div>
     </section>
   );
 }
 
 /** Storybook-style controls: one input per field, bound to the preview only. */
-export function ControlsPane({ preview }: { preview: PreviewProps }) {
+export function ControlsPane({ preview, sectionRef }: { preview: PreviewProps; sectionRef?: Ref<HTMLElement> }) {
   const { def } = preview;
   return (
-    <section className="studio-controls">
+    <section className="studio-controls" ref={sectionRef}>
       <div className="studio-pane-header">
         <span>Controls</span>
         <span className="studio-pane-actions">

@@ -443,14 +443,16 @@ body.is-resizing iframe, body.is-resizing .canvas { pointer-events: none; }
   grid-area: studio;
   display: grid;
   min-height: 0;
-  grid-template-columns: 240px minmax(0, 1fr) minmax(380px, 38%);
-  grid-template-rows: 40px minmax(0, 1fr) 232px;
+  /* The preview column and the bottom row can be dragged; see .studio-splitter. */
+  grid-template-columns: 240px minmax(0, 1fr) var(--studio-preview-w, minmax(380px, 38%));
+  grid-template-rows: 40px minmax(0, 1fr) var(--studio-bottom-h, 232px);
   grid-template-areas:
     "header   header header"
     "explorer center preview"
     "explorer output controls";
   gap: 1px;
   background: var(--line);
+  position: relative;
 }
 .studio > * { background: var(--panel); min-width: 0; min-height: 0; }
 .studio-header { grid-area: header; display: flex; align-items: center; gap: 10px; padding: 0 12px; }
@@ -462,6 +464,17 @@ body.is-resizing iframe, body.is-resizing .canvas { pointer-events: none; }
 .studio-preview { grid-area: preview; display: flex; flex-direction: column; }
 .studio-output { grid-area: output; display: flex; flex-direction: column; }
 .studio-controls { grid-area: controls; display: flex; flex-direction: column; }
+/* Draggable borders. They sit in the 1px gap, with a wider hit area and a line that lights up. */
+.studio > .studio-splitter { background: transparent; position: relative; z-index: 5; touch-action: none; }
+.studio-splitter::after { content: ""; position: absolute; background: transparent; transition: background 0.12s 0.05s; }
+.studio-splitter:hover::after, .studio-splitter:focus-visible::after { background: var(--accent); }
+.studio-splitter:focus-visible { outline: none; }
+.studio-splitter.is-x { grid-column: 3; grid-row: 2 / 4; justify-self: start; width: 9px; margin-left: -5px; cursor: col-resize; }
+.studio-splitter.is-x::after { top: 0; bottom: 0; left: 3px; width: 2px; }
+.studio-splitter.is-y { grid-column: 2 / 4; grid-row: 3; align-self: start; height: 9px; margin-top: -5px; cursor: row-resize; }
+.studio-splitter.is-y::after { left: 0; right: 0; top: 3px; height: 2px; }
+body.is-resizing-y { cursor: row-resize; user-select: none; }
+body.is-resizing-y iframe, body.is-resizing-y .canvas, body.is-resizing-y .studio-code-editor { pointer-events: none; }
 .studio-missing { grid-area: studio; padding: 48px; text-align: center; }
 
 .studio-pane-header {
@@ -540,7 +553,10 @@ body.is-resizing iframe, body.is-resizing .canvas { pointer-events: none; }
 .studio-sheet { background: white; padding: 8mm 0; margin: 0 auto; box-shadow: var(--shadow-page); }
 .studio-canvas .pd-doc { min-width: min-content; }
 .studio-preview-footer { display: flex; gap: 6px; padding: 0 12px; height: 28px; align-items: center; border-top: 1px solid var(--line); font-size: 11.5px; flex: none; }
-.studio-preview-footer .spacer { flex: 1; }
+.studio-preview-footer { white-space: nowrap; overflow: hidden; }
+.studio-preview-footer .spacer { flex: 1; min-width: 0; }
+.studio-preview-footer .zoom-control { flex: none; }
+.studio-preview-footer-note { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .studio-preview-footer .warn { color: var(--warn); }
 
 /* Controls */
