@@ -1,12 +1,15 @@
-import { Minus, Plus, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type Ref } from "react";
 import documentCss from "../styles/document.css?raw";
 import { componentsCss, getCompileStatus, getDefinition, useRegistryVersion } from "../elements/registry";
 import { FieldInput } from "../editor/fields/FieldInput";
-import { ZOOM_STEPS } from "../editor/ui";
+import { useUi, ZOOM_STEPS } from "../editor/ui";
 import { useMenu } from "../ui/Menu";
-import { baseTypography, pageDimensions, scopedCustomCss, toReactStyle } from "../model/css";
-import type { ComponentSource, DocumentModel, ElementNode, Mode } from "../model/types";
+import { buildOutline, buildPageInfos, LayoutContext } from "../layout/pageInfo";
+import { emptyPage } from "../layout/paginate";
+import { sectionAttrs, sectionBox, sectionsCss, sectionsOf } from "../layout/sections";
+import { scopedCustomCss } from "../model/css";
+import type { ComponentSource, DocumentModel, ElementNode, Mode, Zone } from "../model/types";
 import { customType } from "../model/types";
 import { DocContext } from "../render/DocContext";
 import { ElementView } from "../render/ElementView";
@@ -38,9 +41,17 @@ export function usePreviewProps(comp: ComponentSource) {
 
 type PreviewProps = ReturnType<typeof usePreviewProps>;
 
+/** How the preview frames the component. */
+type Frame = "width" | "fill" | "page";
+/** Where the component sits on the simulated page. */
+type Placement = "body" | Zone;
+
 /**
  * Storybook-style canvas: the component alone, at the document's content
- * width and typography, in print or edit mode. Never touches the document.
+ * width and typography, in print or edit mode, or on a whole page so
+ * page-aware components (thumb tabs, running heads) draw as in the document.
+ * It sees the document's last layout (outline, page count) and a chosen page's
+ * usePageInfo(). Never touches the document.
  */
 export function PreviewPane({
   comp,
@@ -56,9 +67,15 @@ export function PreviewPane({
   const type = customType(comp.id);
   const status = getCompileStatus(type);
   const [mode, setMode] = useState<Mode>("print");
-  const [fullWidth, setFullWidth] = useState(false);
+  const [frame, setFrame] = useState<Frame>("width");
+  // Where the document uses it, if it's in a header or footer there.
+  const [placement, setPlacement] = useState<Placement>(
+    () => doc.elements.find((n) => n.type === type && n.zone)?.zone ?? "body",
+  );
+  const [pageNo, setPageNo] = useState(1);
   const [zoom, setZoom] = useState(1);
   const menu = useMenu();
+  const ui = useUi();
   const boxRef = useRef<HTMLDivElement>(null);
   const [heightMm, setHeightMm] = useState<number | null>(null);
 
@@ -66,18 +83,30 @@ export function PreviewPane({
   const node: ElementNode = useMemo(
     () => {
       const { $state, ...props } = preview.props as Record<string, unknown> & { $state?: Record<string, unknown> };
-      return { id: `preview-${comp.id}`, type, props, state: $state, style: {} };
+      const zone = frame === "page" && placement !== "body" ? placement : undefined;
+      return { id: `preview-${comp.id}`, type, props, state: $state, style: {}, ...(zone && { zone }) };
     },
-    [comp.id, type, propsKey], // props compared by value
+    [comp.id, type, propsKey, frame, placement], // props compared by value
   );
 
   const { setProp } = preview;
   const onUpdate = useCallback((_: string, patch: Record<string, unknown>) => setProp(patch), [setProp]);
 
-  const { width, height } = pageDimensions(doc.page);
-  const m = doc.page.margin;
-  const contentWidth = `calc(${width}mm - ${m.left} - ${m.right})`;
-  const contentHeight = `calc(${height}mm - ${m.top} - ${m.bottom})`;
+  // The document's last layout (kept from the document view): what
+  // useDocument() and usePageInfo() report here.
+  const layout = ui.layout?.layout;
+  const sections = useMemo(() => sectionsOf(doc), [doc]);
+  const pages = useMemo(() => (layout?.length ? layout : [emptyPage(sections[0])]), [layout, sections]);
+  const outline = useMemo(() => buildOutline(doc, layout ?? []), [doc, layout]);
+  const layoutInfo = useMemo(() => ({ pages: layout?.length ?? 0, outline }), [layout, outline]);
+  const infos = useMemo(() => buildPageInfos(pages, outline), [pages, outline]);
+  const total = pages.length;
+  const current = Math.min(pageNo, total);
+  const info = infos[current - 1];
+  const section = sections[pages[current - 1].section] ?? sections[0];
+  const box = sectionBox(section);
+  const m = box.margin;
+  const attrs = sectionAttrs(section, "");
 
   const zoomBy = (dir: 1 | -1) => {
     const next = dir > 0 ? ZOOM_STEPS.find((z) => z > zoom + 0.001) : [...ZOOM_STEPS].reverse().find((z) => z < zoom - 0.001);
@@ -94,8 +123,21 @@ export function PreviewPane({
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [zoom]);
-  const pageContentMm = height - parseFloat(m.top) - parseFloat(m.bottom);
+  }, [zoom, frame]); // the frame swaps the observed box
+  const pageContentMm = box.height - parseFloat(m.top) - parseFloat(m.bottom);
+
+  const element = preview.def || status ? <ElementView node={node} mode={mode} page={info} onUpdate={onUpdate} /> : null;
+  /** A header or footer zone of the simulated page, holding the component when it's placed there. */
+  const zone = (which: Zone) => (
+    <div
+      className={`pd-margin pd-margin-${which === "header" ? "top" : "bottom"} pd-zone${placement === which ? "" : " is-empty"}`}
+      data-zone={which}
+      data-label={which === "header" ? "Header" : "Footer"}
+      style={{ height: which === "header" ? m.top : m.bottom, paddingLeft: m.left, paddingRight: m.right }}
+    >
+      {placement === which && element}
+    </div>
+  );
 
   return (
     <section className="studio-preview" ref={sectionRef}>
@@ -110,28 +152,72 @@ export function PreviewPane({
           </button>
         </span>
         <span className="segmented">
-          <button className={!fullWidth ? "is-on" : ""} onClick={() => setFullWidth(false)} title="Width of the document's page content">
+          <button className={frame === "width" ? "is-on" : ""} onClick={() => setFrame("width")} title="Width of the document's page content">
             Page width
           </button>
-          <button className={fullWidth ? "is-on" : ""} onClick={() => setFullWidth(true)}>
+          <button className={frame === "fill" ? "is-on" : ""} onClick={() => setFrame("fill")} title="Fill the preview">
             Fill
+          </button>
+          <button
+            className={frame === "page" ? "is-on" : ""}
+            onClick={() => setFrame("page")}
+            title="On a whole page, for components that draw against the page edge or use the page number"
+          >
+            Page
           </button>
         </span>
       </div>
+      {frame === "page" && (
+        <div className="studio-preview-pagebar">
+          <span className="segmented" title="Where the component sits on the page">
+            {(["header", "body", "footer"] as const).map((p) => (
+              <button key={p} className={placement === p ? "is-on" : ""} onClick={() => setPlacement(p)}>
+                {p[0].toUpperCase() + p.slice(1)}
+              </button>
+            ))}
+          </span>
+          <span className="studio-page-stepper" title="The page usePageInfo() reports">
+            <button onClick={() => setPageNo(current - 1)} disabled={current <= 1} title="Previous page">
+              <ChevronLeft size={13} />
+            </button>
+            <span>
+              Page {current} of {total}
+            </span>
+            <button onClick={() => setPageNo(current + 1)} disabled={current >= total} title="Next page">
+              <ChevronRight size={13} />
+            </button>
+          </span>
+          {info?.chapter && <span className="muted studio-page-chapter">{info.chapter.title}</span>}
+        </div>
+      )}
       <div className="studio-canvas">
-        <div
-          className={`pd-doc pd-${mode}`}
-          style={{ ...toReactStyle(baseTypography(doc.page)), zoom, ["--pd-content-height" as string]: contentHeight }}
-        >
+        <div className={`pd-doc pd-${mode}`} style={{ ...attrs.style, zoom }}>
           <style>{documentCss}</style>
           <style>{componentsCss()}</style>
           <style>{scopedCustomCss(doc)}</style>
+          <style>{sectionsCss(sections)}</style>
           <DocContext.Provider value={doc}>
-            <div ref={boxRef} className="studio-sheet" style={{ width: fullWidth ? "auto" : contentWidth }}>
-              {preview.def || status ? (
-                <ElementView node={node} mode={mode} onUpdate={onUpdate} />
-              ) : null}
-            </div>
+            <LayoutContext.Provider value={layoutInfo}>
+              {frame === "page" ? (
+                <section
+                  ref={boxRef}
+                  className={["pd-page", "studio-page", ...(section.settings.classes ?? [])].join(" ")}
+                  data-section={section.index}
+                  data-page={current}
+                  style={{ width: `${box.width}mm`, height: `${box.height}mm`, background: section.settings.background || undefined }}
+                >
+                  {zone("header")}
+                  <div className="pd-content" style={{ top: m.top, left: m.left, right: m.right, bottom: m.bottom }}>
+                    {placement === "body" && element}
+                  </div>
+                  {zone("footer")}
+                </section>
+              ) : (
+                <div ref={boxRef} className="studio-sheet" style={{ width: frame === "fill" ? "auto" : box.contentWidth }}>
+                  {element}
+                </div>
+              )}
+            </LayoutContext.Provider>
           </DocContext.Provider>
         </div>
       </div>
@@ -148,7 +234,7 @@ export function PreviewPane({
         )}
         <span className="spacer" />
         <span className="studio-preview-footer-note">
-          {doc.page.size} {doc.page.orientation}, typography from the document
+          {section.settings.size} {section.settings.orientation}, typography from the document
         </span>
         <div className="zoom-control">
           <button onClick={() => zoomBy(-1)} disabled={zoom <= ZOOM_STEPS[0]} title="Zoom out">

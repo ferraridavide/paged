@@ -550,7 +550,26 @@ body.is-resizing-y iframe, body.is-resizing-y .canvas, body.is-resizing-y .studi
   flex: 1; overflow: auto; padding: 28px 24px;
   background: var(--desk) radial-gradient(circle, rgba(24, 24, 27, 0.12) 1px, transparent 1px) 0 0 / 16px 16px;
 }
-.studio-sheet { background: white; padding: 8mm 0; margin: 0 auto; box-shadow: var(--shadow-page); }
+/* Positioned, so a component drawn against its container stays in the preview. */
+.studio-sheet { position: relative; background: white; padding: 8mm 0; margin: 0 auto; box-shadow: var(--shadow-page); }
+.studio-page { margin: 0 auto; box-shadow: var(--shadow-page); }
+/* Name the zones on hover, but nothing to type into here. */
+.studio-page .pd-zone { cursor: default; }
+.pd-edit .studio-page .pd-zone.is-empty:hover::after { content: attr(data-label); }
+.studio-preview-pagebar {
+  display: flex; align-items: center; gap: 10px; padding: 0 12px; height: 32px; flex: none;
+  border-bottom: 1px solid var(--line); font-size: 12px; white-space: nowrap; overflow: hidden;
+}
+.studio-preview-pagebar .segmented button { height: 20px; font-size: 11px; padding: 0 8px; }
+.studio-page-stepper { display: flex; align-items: center; gap: 2px; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.studio-page-stepper button {
+  display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px;
+  background: none; color: var(--muted); cursor: pointer;
+}
+.studio-page-stepper > span { padding: 0 4px; }
+.studio-page-stepper button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.studio-page-stepper button:disabled { opacity: 0.4; cursor: default; }
+.studio-page-chapter { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .studio-canvas .pd-doc { min-width: min-content; }
 .studio-preview-footer { display: flex; gap: 6px; padding: 0 12px; height: 28px; align-items: center; border-top: 1px solid var(--line); font-size: 11.5px; flex: none; }
 .studio-preview-footer { white-space: nowrap; overflow: hidden; }
